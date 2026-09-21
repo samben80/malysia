@@ -1,0 +1,62 @@
+MALYSIA CAR PRO — paquet de mise en ligne
+=========================================
+malysiacar.ma · site statique, aucun serveur applicatif requis
+
+CONTENU
+  index.html          Le site complet, en HTML réel (aucun JavaScript)
+  merci.html          Page de confirmation après envoi d'un formulaire
+  404.html            Page d'erreur
+  assets/             Photos des véhicules et logos, en WebP
+  fonts/              Polices auto-hébergées (Cinzel, Plus Jakarta Sans, IBM Plex Mono)
+  robots.txt          Autorise les moteurs de recherche ET les robots des IA
+  sitemap.xml         Plan du site pour Google
+  llms.txt            Fiche de synthèse destinée aux assistants IA
+  _headers            Cache et en-têtes de sécurité (lu par Netlify)
+  favicon.ico, apple-touch-icon.png
+
+MISE EN LIGNE SUR NETLIFY (5 minutes, gratuit)
+  1. Créer un compte sur netlify.com
+  2. Onglet « Sites » puis « Add new site » > « Deploy manually »
+  3. Glisser-déposer le CONTENU de ce dossier (pas le dossier lui-même)
+  4. Le site est en ligne sur une adresse en .netlify.app
+  5. « Domain management » > « Add a domain » > malysiacar.ma,
+     puis suivre les instructions DNS affichées
+  6. Le certificat HTTPS se met en place tout seul
+
+LES FORMULAIRES
+  Les deux formulaires (réservation et contact) sont déjà câblés pour
+  Netlify Forms. Ils fonctionnent dès le premier déploiement, sans code.
+  Pour recevoir les demandes par e-mail :
+    Site configuration > Forms > Form notifications > Add notification
+    > Email notification, puis indiquer l'adresse de réception.
+  Un piège à robots (champ « societe ») est déjà en place.
+
+AVANT L'OUVERTURE PUBLIQUE — À FAIRE VALIDER
+  - Téléphone et e-mail : FAIT. +212 661 99 79 88 et
+    contact@malysiacar.ma sont en place partout, en texte visible, dans
+    les liens d'appel et de messagerie, et dans les données structurées
+    lues par Google et les assistants IA.
+
+  ATTENTION AU DÉMÉNAGEMENT DNS
+  L'adresse contact@malysiacar.ma dépend des enregistrements MX du
+  domaine. En repointant malysiacar.ma vers un nouvel hébergeur, ne
+  recopiez que les enregistrements A / CNAME du site : laissez les MX
+  et le TXT SPF inchangés, sinon la boîte cesse de recevoir du courrier.
+  - Les tarifs de la flotte et de la grille entreprises sont à confirmer.
+  - Les 4 pages légales citées dans le pied de page (Conditions de
+    location, Politique de caution, Mentions légales, Confidentialité)
+    n'existent pas encore : elles sont affichées en texte simple, sans
+    lien, donc rien n'est cassé, mais elles restent à rédiger.
+
+APRÈS LA MISE EN LIGNE
+  - Déclarer le site dans Google Search Console et y soumettre
+    https://malysiacar.ma/sitemap.xml
+  - Créer la fiche Google Business Profile de l'entreprise : c'est le
+    premier levier de visibilité locale pour une agence de location.
+
+SI VOUS PASSEZ PLUS TARD SUR CLOUDFLARE
+  Cloudflare bloque par défaut les robots des IA (catégories Training et
+  Agent) depuis le 15 septembre 2026. Il faut donc, après migration :
+    Security > WAF > Custom rules > créer une règle « Skip »
+    sur les user-agents GPTBot, OAI-SearchBot, ClaudeBot, PerplexityBot
+  Sans cette règle, le travail de référencement IA fait ici est annulé.

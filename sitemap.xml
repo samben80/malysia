@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://malysiacar.ma/</loc>
+    <lastmod>2026-09-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image><image:loc>https://malysiacar.ma/assets/veh-dacia-logan.webp</image:loc><image:title>Dacia Logan</image:title></image:image>
+    <image:image><image:loc>https://malysiacar.ma/assets/veh-golf-8.webp</image:loc><image:title>Volkswagen Golf 8</image:title></image:image>
+    <image:image><image:loc>https://malysiacar.ma/assets/veh-mercedes-classe-e.webp</image:loc><image:title>Mercedes Classe E</image:title></image:image>
+    <image:image><image:loc>https://malysiacar.ma/assets/veh-range-rover-sport.webp</image:loc><image:title>Range Rover Sport</image:title></image:image>
+    <image:image><image:loc>https://malysiacar.ma/assets/veh-hyundai-tucson.webp</image:loc><image:title>Hyundai Tucson</image:title></image:image>
+    <image:image><image:loc>https://malysiacar.ma/assets/veh-porsche-911.webp</image:loc><image:title>Porsche 911 Carrera</image:title></image:image>
+    <image:image><image:loc>https://malysiacar.ma/assets/veh-mercedes-classe-v.webp</image:loc><image:title>Mercedes Classe V</image:title></image:image>
+    <image:image><image:loc>https://malysiacar.ma/assets/veh-renault-master.webp</image:loc><image:title>Renault Master 12 m3</image:title></image:image>
+  </url>
+</urlset>
