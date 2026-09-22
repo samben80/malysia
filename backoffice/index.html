@@ -88,7 +88,7 @@ main h1{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
 .statut[data-s="Payée"]{background:rgba(74,122,86,.2);color:var(--positif)}
 .statut[data-s="Prête à livrer"]{background:rgba(44,33,26,.1);color:var(--encre)}
 
-#fiche{background:var(--surface);border:1px solid var(--filet);padding:24px;position:sticky;top:24px}
+#fiche{background:var(--surface);border:1px solid var(--filet);padding:24px;position:sticky;top:24px;max-height:calc(100vh - 48px);overflow:auto}
 #fiche .vide{color:var(--texte2);font-size:13.5px;text-align:center;padding:40px 0}
 #fiche h2{font-size:16px;margin-bottom:2px}
 #fiche .ref{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texte2);margin-bottom:16px}
@@ -100,6 +100,21 @@ main h1{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
 #fiche .tel{display:inline-block;margin-top:4px;font-family:'IBM Plex Mono',monospace}
 #fiche .whatsapp{display:block;text-align:center;border:1px solid var(--positif);color:var(--positif);padding:12px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;margin-top:14px}
 #fiche .whatsapp:hover{background:rgba(74,122,86,.08)}
+#fiche .dossier{border-top:1px solid var(--filet);margin-top:22px;padding-top:18px}
+#fiche .dossier h3{font-size:13px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+#fiche .action.secondaire{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+#fiche .alerte{background:rgba(160,69,63,.08);color:var(--negatif);font-size:12.5px;padding:8px 12px;margin:10px 0 0}
+#fiche .pieces{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#fiche .pieces figure{margin:0}
+#fiche .pieces img{width:100%;height:110px;object-fit:cover;border:1px solid var(--filet);cursor:zoom-in;display:block}
+#fiche .pieces figcaption{font-size:11px;color:var(--texte2);margin-top:4px}
+#etat-dossier{font-size:12.5px;margin-top:10px}
+#etat-dossier.erreur{color:var(--negatif)}
+#visionneuse{border:0;padding:0;max-width:94vw;max-height:94vh;background:#000}
+#visionneuse::backdrop{background:rgba(0,0,0,.75)}
+#visionneuse img{max-width:94vw;max-height:86vh;display:block}
+#visionneuse figcaption{color:#fff;font-size:12px;padding:8px 12px;display:flex;justify-content:space-between}
+#visionneuse button{background:none;border:0;color:#fff;font-size:12px}
 #etat-action{font-size:12.5px;margin-top:10px;min-height:1.2em}
 #etat-action.erreur{color:var(--negatif)}
 #etat-action.ok{color:var(--positif)}
@@ -170,6 +185,8 @@ main h1{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
     </div>
   </main>
 </div>
+
+<dialog id="visionneuse"><figure style="margin:0"><img alt=""><figcaption></figcaption></figure><form method="dialog" style="position:absolute;top:6px;right:8px"><button>Fermer ✕</button></form></dialog>
 
 <script src="../firebase-config.js" defer></script>
 <script type="module" src="./backoffice.js"></script>

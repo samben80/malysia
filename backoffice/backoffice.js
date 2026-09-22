@@ -1,6 +1,7 @@
 import {
   connecter,
   listerDocuments,
+  creerDocument,
   corrigerDocument,
   lireDocument,
   estConfigure,
@@ -8,6 +9,12 @@ import {
 
 const CLE_SESSION = "malysia_bo_session";
 const ORDRE_STATUTS = ["À confirmer", "Confirmée", "Payée", "Prête à livrer"];
+const PIECES = [
+  ["permis_recto", "Permis — recto"],
+  ["permis_verso", "Permis — verso"],
+  ["identite_recto", "Pièce d'identité — recto"],
+  ["identite_verso", "Pièce d'identité — verso"],
+];
 
 const ecranConnexion = document.getElementById("ecran-connexion");
 const app = document.getElementById("app");
@@ -17,6 +24,7 @@ const quiConnecte = document.getElementById("qui-connecte");
 const listeEl = document.getElementById("liste");
 const ficheEl = document.getElementById("fiche");
 const filtresEl = document.getElementById("filtres");
+const visionneuse = document.getElementById("visionneuse");
 
 let session = null; // { idToken, email }
 let reservations = [];
@@ -168,11 +176,135 @@ function renderFiche() {
       : `<p class="aide">${aide}</p>`}
     <p id="etat-action"></p>
     ${r.statut !== "À confirmer" && r.telephone
-      ? `<a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(r))}">Prévenir le client par WhatsApp</a>`
+      ? `<a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(r.telephone, messageConfirmation(r)))}">Prévenir le client par WhatsApp</a>`
       : ""}
+    ${r.statut !== "À confirmer" ? '<div class="dossier" id="bloc-dossier"></div>' : ""}
   `;
   if (prochain) {
     document.getElementById("bouton-action").addEventListener("click", () => appliquerAction(r, prochain));
+  }
+  if (r.statut !== "À confirmer") renderDossier(r);
+}
+
+// ---- dossier client : lien envoyé par WhatsApp, formulaire rempli par le client (dossier.html)
+
+function nouveauJeton() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const octets = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(octets, (o) => alphabet[o % alphabet.length]).join("");
+}
+
+function lienDossier(jeton) {
+  return new URL(`../dossier.html?d=${jeton}`, location.href).href;
+}
+
+function messageDossier(r, jeton) {
+  return `Bonjour, ici Excellence VIPs. Pour préparer votre contrat de location` +
+    (r.vehiculeNom ? ` (${r.vehiculeNom}` + (r.depart && r.retour ? `, du ${formateDate(r.depart)} au ${formateDate(r.retour)}` : "") + ")" : "") +
+    `, merci de compléter votre dossier et d'y ajouter une photo de votre permis et de votre pièce d'identité : ${lienDossier(jeton)}`;
+}
+
+async function renderDossier(r) {
+  const bloc = document.getElementById("bloc-dossier");
+  if (!r.dossier) {
+    bloc.innerHTML = `<h3>Dossier client</h3>
+      <p class="aide">Envoie au client un lien pour qu'il remplisse ses informations et photographie son permis et sa pièce d'identité.</p>
+      ${r.telephone ? '<button class="action secondaire" id="demander-dossier">Demander le dossier par WhatsApp</button>' : '<p class="aide">Pas de numéro de téléphone sur cette demande.</p>'}
+      <p id="etat-dossier"></p>`;
+    const bouton = document.getElementById("demander-dossier");
+    if (bouton) bouton.addEventListener("click", () => demanderDossier(r));
+    return;
+  }
+  bloc.innerHTML = '<h3>Dossier client</h3><p class="aide">Chargement…</p>';
+  let dossier, fiche, pieces;
+  try {
+    dossier = await lireDocument("dossiers", r.dossier, { idToken: session.idToken });
+    if (dossier && dossier.statut === "Reçu") {
+      fiche = await lireDocument(`dossiers/${r.dossier}/prive`, "fiche", { idToken: session.idToken });
+      pieces = await Promise.all(PIECES.map(([nom]) =>
+        lireDocument(`dossiers/${r.dossier}/pieces`, nom, { idToken: session.idToken })));
+    }
+  } catch {
+    if (selectionId === r.id) bloc.innerHTML = '<h3>Dossier client</h3><p class="aide">Le dossier n\'a pas pu être chargé. Rechargez la page.</p>';
+    return;
+  }
+  if (selectionId !== r.id) return; // une autre fiche a été ouverte entre-temps
+  const renvoyer = `<a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(r.telephone, messageDossier(r, r.dossier)))}">Renvoyer le lien par WhatsApp</a>`;
+  if (!dossier || dossier.statut !== "Reçu" || !fiche) {
+    bloc.innerHTML = `<h3>Dossier client</h3>
+      <p class="aide">Lien envoyé, en attente du client. Rechargez la page pour voir s'il a répondu.</p>${renvoyer}`;
+    return;
+  }
+  const alertes = alertesDossier(fiche, r);
+  bloc.innerHTML = `<h3>Dossier client <span class="statut" data-s="Confirmée">Reçu</span></h3>
+    ${alertes.map((a) => `<p class="alerte">${escHTML(a)}</p>`).join("")}
+    <div class="champs">
+      <div><span>Nom</span>${escHTML(fiche.nom)} ${escHTML(fiche.prenom)}</div>
+      <div><span>Naissance</span>${escHTML(formateDate(fiche.dateNaissance))} à ${escHTML(fiche.lieuNaissance)}</div>
+      <div><span>Nationalité</span>${escHTML(fiche.nationalite)}</div>
+      <div><span>E-mail</span>${escHTML(fiche.email)}</div>
+      <div><span>Téléphone</span>${escHTML(fiche.telephone)}</div>
+      <div><span>Adresse</span>${escHTML(fiche.adresse)}, ${escHTML(fiche.ville)}, ${escHTML(fiche.pays)}</div>
+      <div><span>${escHTML(fiche.typePiece)}</span>${escHTML(fiche.numeroPiece)} (exp. ${escHTML(formateDate(fiche.expirationPiece))})</div>
+      <div><span>Permis</span>${escHTML(fiche.numeroPermis)} (${escHTML(fiche.paysPermis)}, délivré le ${escHTML(formateDate(fiche.delivrancePermis))})</div>
+    </div>
+    <div class="pieces">
+      ${PIECES.map(([, libelle], i) => pieces[i] && typeof pieces[i].image === "string" && pieces[i].image.startsWith("data:image/")
+        ? `<figure><img src="${escAttr(pieces[i].image)}" alt="${escAttr(libelle)}" data-libelle="${escAttr(libelle)}"><figcaption>${escHTML(libelle)}</figcaption></figure>`
+        : "").join("")}
+    </div>`;
+  bloc.querySelectorAll(".pieces img").forEach((img) => img.addEventListener("click", () => {
+    visionneuse.querySelector("img").src = img.src;
+    visionneuse.querySelector("figcaption").textContent = img.dataset.libelle;
+    visionneuse.showModal();
+  }));
+}
+
+function anneesEntre(debut, fin) {
+  const a = new Date(debut), b = new Date(fin);
+  let n = b.getFullYear() - a.getFullYear();
+  if (b.getMonth() < a.getMonth() || (b.getMonth() === a.getMonth() && b.getDate() < a.getDate())) n--;
+  return n;
+}
+
+function alertesDossier(fiche, r) {
+  const reference = (r.depart || "").split("T")[0] || new Date().toISOString().slice(0, 10);
+  const alertes = [];
+  if (fiche.dateNaissance && anneesEntre(fiche.dateNaissance, reference) < 21) alertes.push("Le conducteur aura moins de 21 ans au départ.");
+  if (fiche.delivrancePermis && anneesEntre(fiche.delivrancePermis, reference) < 2) alertes.push("Le permis aura moins de 2 ans au départ.");
+  const fin = (r.retour || "").split("T")[0];
+  if (fiche.expirationPiece && fin && fiche.expirationPiece < fin) alertes.push("La pièce d'identité expire avant la fin de la location.");
+  return alertes;
+}
+
+async function demanderDossier(r) {
+  const bouton = document.getElementById("demander-dossier");
+  const etat = document.getElementById("etat-dossier");
+  // ouverte tout de suite, pendant le clic, sinon le navigateur bloque la fenêtre WhatsApp
+  const fenetre = window.open("", "_blank");
+  bouton.disabled = true;
+  etat.textContent = "Préparation du lien…";
+  try {
+    const jeton = nouveauJeton();
+    await creerDocument("dossiers", {
+      reservationId: r.id,
+      vehiculeNom: r.vehiculeNom || "",
+      depart: r.depart || "",
+      retour: r.retour || "",
+      telephone: r.telephone || "",
+      statut: "En attente",
+      creeLe: new Date(),
+    }, { idToken: session.idToken, id: jeton });
+    await corrigerDocument("reservations", r.id, { dossier: jeton }, { idToken: session.idToken });
+    r.dossier = jeton;
+    const lien = lienWhatsApp(r.telephone, messageDossier(r, jeton));
+    if (fenetre) fenetre.location.href = lien; else window.open(lien, "_blank");
+    render();
+  } catch (e) {
+    if (fenetre) fenetre.close();
+    bouton.disabled = false;
+    etat.className = "erreur";
+    etat.textContent = "Échec : " + e.message;
   }
 }
 
@@ -185,13 +317,15 @@ function telWhatsApp(tel) {
   return chiffres;
 }
 
-function lienWhatsApp(r) {
-  const message =
-    `Bonjour, ici Excellence VIPs. Votre réservation` +
+function messageConfirmation(r) {
+  return `Bonjour, ici Excellence VIPs. Votre réservation` +
     (r.vehiculeNom ? ` pour ${r.vehiculeNom}` : "") +
     (r.depart && r.retour ? ` du ${formateDate(r.depart)} au ${formateDate(r.retour)}` : "") +
     ` est confirmée. À bientôt !`;
-  return `https://wa.me/${telWhatsApp(r.telephone)}?text=${encodeURIComponent(message)}`;
+}
+
+function lienWhatsApp(tel, message) {
+  return `https://wa.me/${telWhatsApp(tel)}?text=${encodeURIComponent(message)}`;
 }
 
 function actionPour(statut) {

@@ -32,18 +32,17 @@ d'autres plus tard, un par personne de l'équipe.
 
 ### 4. Poser les règles de sécurité
 
-**Firestore Database** > onglet **Rules**, remplacer le contenu par
-exactement ceci, puis **Publier** :
+**Firestore Database** > onglet **Règles**, remplacer tout le contenu par
+celui du fichier `firestore.rules` du dépôt (recopié ci-dessous), puis **Publier**.
+À refaire à chaque modification de ce fichier.
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Demandes envoyées depuis le site public : tout le monde peut en
-    // créer une (le formulaire de réservation), personne ne peut la lire
-    // ni la modifier sans être connecté — les coordonnées des clients ne
-    // sont donc jamais publiques.
+    // Demandes du site public : tout le monde peut en créer une, seule
+    // l'équipe connectée peut les lire ou les modifier.
     match /reservations/{id} {
       allow create: if true;
       allow read, update, delete: if request.auth != null;
@@ -55,17 +54,48 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null;
     }
 
-    // Disponibilité des véhicules : lecture publique (c'est ce qui permet
-    // au site d'afficher "disponible" / "déjà réservé"), mais seule
-    // l'équipe connectée peut la modifier — cela n'arrive qu'au moment où
-    // elle confirme une réservation dans le back-office.
+    // Disponibilité des véhicules : lecture publique, écriture par l'équipe.
     match /disponibilite/{vehiculeId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
+
+    // Dossiers clients. L'équipe crée le dossier et envoie son lien par
+    // WhatsApp ; l'identifiant du dossier, long et aléatoire, sert de clé.
+    // Le client peut lire le résumé de SON dossier (jamais la liste), y
+    // déposer ses informations et ses photos une seule fois, puis le
+    // marquer "Reçu". Informations et photos ne sont lisibles que par l'équipe.
+    match /dossiers/{jeton} {
+      function enAttente() {
+        return get(/databases/$(database)/documents/dossiers/$(jeton)).data.statut == "En attente";
+      }
+
+      allow get: if true;
+      allow list, create, delete: if request.auth != null;
+      allow update: if request.auth != null
+        || (resource.data.statut == "En attente"
+            && request.resource.data.statut == "Reçu"
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "recuLe"]));
+
+      match /prive/{doc} {
+        allow create: if doc == "fiche" && enAttente();
+        allow read, update, delete: if request.auth != null;
+      }
+
+      match /pieces/{nom} {
+        allow create: if nom in ["permis_recto", "permis_verso", "identite_recto", "identite_verso"]
+          && enAttente()
+          && request.resource.data.image is string
+          && request.resource.data.image.size() < 1000000;
+        allow read, update, delete: if request.auth != null;
+      }
+    }
   }
 }
 ```
+
+Ces règles ont été vérifiées sur l'émulateur Firestore local (21 cas : ce qu'un
+visiteur anonyme peut et ne peut pas faire, ce que l'équipe connectée peut faire).
 
 Ces règles sont volontairement simples : n'importe quel compte connecté a
 accès à tout le back-office. Suffisant pour une petite équipe. Le jour où il
@@ -98,6 +128,11 @@ publier une dans ce dépôt s'il en apparaît une plus tard pour un usage futur.
 - Un indicateur de disponibilité (lecture de `disponibilite/{vehicule}`)
   s'affiche sous les dates dès qu'un véhicule est choisi — indicatif, jamais
   bloquant : la confirmation reste toujours humaine.
-- `backoffice/` (à venir dans un prochain envoi) : connexion, liste des
-  demandes, fiche détaillée, action de confirmation qui bloque les dates
-  choisies pour ce véhicule.
+- `backoffice/` : connexion, liste des demandes, fiche détaillée, action de
+  confirmation qui bloque les dates choisies pour ce véhicule, message
+  WhatsApp au client, demande du dossier client.
+- `dossier.html?d=…` : formulaire envoyé au client par WhatsApp (identité,
+  adresse, permis, photos des documents). Données rangées dans
+  `dossiers/{jeton}` (résumé), `dossiers/{jeton}/prive/fiche` (informations)
+  et `dossiers/{jeton}/pieces/{nom}` (photos réduites, moins de 1 Mo chacune),
+  lisibles seulement par l'équipe connectée.

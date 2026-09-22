@@ -77,9 +77,9 @@ function depuisDocument(doc) {
 
 // ---- Firestore : lecture, écriture
 
-/** Crée un document dans `collection`. Retourne {id, ...champs} ou lève une erreur. */
-export async function creerDocument(collection, donnees, { idToken } = {}) {
-  const url = `${baseUrl()}/${collection}`;
+/** Crée un document dans `collection`, sous l'identifiant `id` s'il est donné. Retourne {id, ...champs} ou lève une erreur (avec `status`). */
+export async function creerDocument(collection, donnees, { idToken, id } = {}) {
+  const url = `${baseUrl()}/${collection}` + (id ? `?documentId=${encodeURIComponent(id)}` : "");
   const headers = { "Content-Type": "application/json" };
   if (idToken) headers.Authorization = `Bearer ${idToken}`;
   const res = await fetch(url, {
@@ -87,7 +87,11 @@ export async function creerDocument(collection, donnees, { idToken } = {}) {
     headers,
     body: JSON.stringify({ fields: versChampsFirestore(donnees) }),
   });
-  if (!res.ok) throw new Error(`Firestore ${res.status} : ${await res.text()}`);
+  if (!res.ok) {
+    const err = new Error(`Firestore ${res.status} : ${await res.text()}`);
+    err.status = res.status;
+    throw err;
+  }
   return depuisDocument(await res.json());
 }
 

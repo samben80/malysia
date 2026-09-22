@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Votre dossier de location — Malysia Car Pro</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="favicon.ico" sizes="any">
+<style>
+@font-face{font-family:'Cinzel';font-style:normal;font-weight:500;font-display:swap;src:url('fonts/cinzel-500-latin.woff2') format('woff2');}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:400;font-display:swap;src:url('fonts/jakarta-400-latin.woff2') format('woff2');}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:700;font-display:swap;src:url('fonts/jakarta-700-latin.woff2') format('woff2');}
+:root{--fond:#FDFAF4;--surface:#FFFFFF;--filet:rgba(138,82,54,.16);--accent:#8A5236;--accent-clair:#C08A64;--encre:#2C211A;--texte2:#7A6656;--negatif:#A0453F;--positif:#4A7A56}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--fond);color:var(--encre);font-family:'Plus Jakarta Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.page{max-width:720px;margin:0 auto;padding:28px 16px 64px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+header img{height:40px;width:auto}
+header span{font-family:Cinzel,serif;font-size:14px;letter-spacing:.18em}
+h1{font-family:Cinzel,serif;font-weight:500;font-size:22px;margin:0 0 8px}
+.intro{color:var(--texte2);font-size:14.5px;line-height:1.6;margin:0 0 20px}
+.resa{background:var(--surface);border:1px solid var(--filet);padding:14px 18px;font-size:14px;margin-bottom:28px}
+.resa b{display:block;font-size:15.5px;margin-bottom:2px}
+fieldset{border:0;margin:0 0 28px;padding:0}
+legend{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;padding:0}
+.grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--texte2)}
+input,select{border:1px solid var(--filet);background:var(--surface);padding:12px 13px;font-size:15px;font-family:inherit;color:var(--encre);width:100%}
+input:focus,select:focus{outline:2px solid var(--accent-clair);outline-offset:0}
+.photo{background:var(--surface);border:1px dashed var(--accent-clair);padding:14px;display:flex;flex-direction:column;gap:8px}
+.photo input{padding:8px;border:0;background:transparent;font-size:13px}
+.photo img{max-width:100%;max-height:160px;object-fit:contain;display:none;align-self:flex-start}
+.photo img.ok{display:block}
+.photo small{color:var(--texte2);font-size:12px}
+.consentement{flex-direction:row;align-items:flex-start;gap:10px;font-size:13px;line-height:1.55;color:var(--encre)}
+.consentement input{width:auto;margin-top:3px}
+button{background:linear-gradient(135deg,#C08A64 0%,#8A5236 100%);color:#FFF9F1;font-weight:700;border:0;padding:17px 24px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;width:100%;font-family:inherit}
+button:disabled{opacity:.6;cursor:default}
+#erreur{color:var(--negatif);font-size:14px;min-height:1.2em;margin:12px 0 0}
+.etat{background:var(--surface);border:1px solid var(--filet);padding:28px 22px;text-align:center;font-size:15px;line-height:1.6}
+.etat h1{margin-bottom:10px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <img src="assets/logo-emblem.webp" alt="" width="200" height="113">
+    <span>MALYSIA CAR PRO</span>
+  </header>
+
+  <div id="chargement" class="etat">Chargement de votre dossier…</div>
+
+  <div id="introuvable" class="etat" hidden>
+    <h1>Lien invalide</h1>
+    Ce lien de dossier n'existe pas ou n'est plus valable. Contactez-nous au <a href="tel:+212661997988">+212 661 99 79 88</a>.
+  </div>
+
+  <div id="deja-recu" class="etat" hidden>
+    <h1>Dossier bien reçu</h1>
+    Merci, nous avons toutes vos informations. Nous vous envoyons votre contrat de location très bientôt.
+  </div>
+
+  <form id="form-dossier" hidden novalidate>
+    <h1>Votre dossier de location</h1>
+    <p class="intro">Pour préparer votre contrat, merci de compléter ces informations et d'ajouter une photo de votre permis de conduire et de votre pièce d'identité. Cela prend environ 3 minutes.</p>
+    <div class="resa" id="resume-resa"></div>
+
+    <fieldset>
+      <legend>Conducteur principal</legend>
+      <div class="grille">
+        <label>Nom<input name="nom" required autocomplete="family-name"></label>
+        <label>Prénom<input name="prenom" required autocomplete="given-name"></label>
+        <label>Date de naissance<input name="dateNaissance" type="date" required autocomplete="bday"></label>
+        <label>Lieu de naissance<input name="lieuNaissance" required></label>
+        <label>Nationalité<input name="nationalite" required></label>
+        <label>Téléphone<input name="telephone" type="tel" required autocomplete="tel"></label>
+        <label>E-mail<input name="email" type="email" required autocomplete="email"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Adresse</legend>
+      <div class="grille">
+        <label style="grid-column:1/-1">Adresse<input name="adresse" required autocomplete="street-address"></label>
+        <label>Ville<input name="ville" required autocomplete="address-level2"></label>
+        <label>Pays<input name="pays" required value="Maroc" autocomplete="country-name"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Pièce d'identité</legend>
+      <div class="grille">
+        <label>Type
+          <select name="typePiece" required>
+            <option value="CIN">Carte d'identité (CIN)</option>
+            <option value="Passeport">Passeport</option>
+            <option value="Carte de séjour">Carte de séjour</option>
+          </select>
+        </label>
+        <label>Numéro<input name="numeroPiece" required></label>
+        <label>Date d'expiration<input name="expirationPiece" type="date" required></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Permis de conduire</legend>
+      <div class="grille">
+        <label>Numéro du permis<input name="numeroPermis" required></label>
+        <label>Date de délivrance<input name="delivrancePermis" type="date" required></label>
+        <label>Pays de délivrance<input name="paysPermis" required value="Maroc"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Photos des documents</legend>
+      <div class="grille">
+        <div class="photo"><label>Permis — recto<input type="file" accept="image/*" data-piece="permis_recto" required></label><img alt=""><small>Obligatoire</small></div>
+        <div class="photo"><label>Permis — verso<input type="file" accept="image/*" data-piece="permis_verso" required></label><img alt=""><small>Obligatoire</small></div>
+        <div class="photo"><label>Pièce d'identité — recto (ou page photo du passeport)<input type="file" accept="image/*" data-piece="identite_recto" required></label><img alt=""><small>Obligatoire</small></div>
+        <div class="photo"><label>Pièce d'identité — verso<input type="file" accept="image/*" data-piece="identite_verso"></label><img alt=""><small>Pas nécessaire pour un passeport</small></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <label class="consentement"><input type="checkbox" name="consentement" required>
+        <span>J'accepte que Malysia Car Pro conserve ces informations et ces copies de documents pour établir et exécuter mon contrat de location, conformément à la loi 09-08 relative à la protection des données personnelles. Elles ne sont accessibles qu'à l'équipe de l'agence.</span>
+      </label>
+    </fieldset>
+
+    <button type="submit">Envoyer mon dossier</button>
+    <p id="erreur" role="alert"></p>
+  </form>
+</div>
+<script src="firebase-config.js" defer></script>
+<script type="module" src="assets/dossier.js"></script>
+</body>
+</html>
