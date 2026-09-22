@@ -90,11 +90,18 @@ service cloud.firestore {
         allow read, update, delete: if request.auth != null;
       }
     }
+
+    // Contrats : établis par l'équipe, consultables par le client via le
+    // lien (identifiant long et aléatoire) envoyé par WhatsApp. Jamais listables.
+    match /contrats/{jeton} {
+      allow get: if true;
+      allow list, create, update, delete: if request.auth != null;
+    }
   }
 }
 ```
 
-Ces règles ont été vérifiées sur l'émulateur Firestore local (21 cas : ce qu'un
+Ces règles ont été vérifiées sur l'émulateur Firestore local (28 cas : ce qu'un
 visiteur anonyme peut et ne peut pas faire, ce que l'équipe connectée peut faire).
 
 Ces règles sont volontairement simples : n'importe quel compte connecté a
@@ -136,3 +143,7 @@ publier une dans ce dépôt s'il en apparaît une plus tard pour un usage futur.
   `dossiers/{jeton}` (résumé), `dossiers/{jeton}/prive/fiche` (informations)
   et `dossiers/{jeton}/pieces/{nom}` (photos réduites, moins de 1 Mo chacune),
   lisibles seulement par l'équipe connectée.
+- `contrat.html?c=…` : contrat de location généré depuis le back-office à
+  partir de la réservation et du dossier (`contrats/{jeton}`), consultable et
+  imprimable en PDF par le client. Textes, frais et infos société :
+  `assets/contrat-modele.js`.

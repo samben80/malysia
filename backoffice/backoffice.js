@@ -6,6 +6,7 @@ import {
   lireDocument,
   estConfigure,
 } from "../assets/firestore-rest.js";
+import { SOCIETE, FRAIS, TARIFS, conditionsGenerales } from "../assets/contrat-modele.js";
 
 const CLE_SESSION = "malysia_bo_session";
 const ORDRE_STATUTS = ["À confirmer", "Confirmée", "Payée", "Prête à livrer"];
@@ -199,7 +200,7 @@ function lienDossier(jeton) {
 }
 
 function messageDossier(r, jeton) {
-  return `Bonjour, ici Excellence VIPs. Pour préparer votre contrat de location` +
+  return `Bonjour, ici Malysia Car Pro. Pour préparer votre contrat de location` +
     (r.vehiculeNom ? ` (${r.vehiculeNom}` + (r.depart && r.retour ? `, du ${formateDate(r.depart)} au ${formateDate(r.retour)}` : "") + ")" : "") +
     `, merci de compléter votre dossier et d'y ajouter une photo de votre permis et de votre pièce d'identité : ${lienDossier(jeton)}`;
 }
@@ -258,6 +259,106 @@ async function renderDossier(r) {
     visionneuse.querySelector("figcaption").textContent = img.dataset.libelle;
     visionneuse.showModal();
   }));
+  bloc.insertAdjacentHTML("beforeend", '<div id="bloc-contrat"></div>');
+  renderContrat(r, fiche);
+}
+
+// ---- contrat : généré depuis la réservation et le dossier, partagé au client par lien (contrat.html)
+
+function joursLocation(r) {
+  const ms = new Date(r.retour) - new Date(r.depart);
+  return Number.isFinite(ms) ? Math.max(1, Math.ceil(ms / 86400000)) : 1;
+}
+
+function lienContrat(jeton) {
+  return new URL(`../contrat.html?c=${jeton}`, location.href).href;
+}
+
+function messageContrat(r, contrat, jeton) {
+  return `Bonjour, ici Malysia Car Pro. Voici votre contrat de location n° ${contrat.numero}` +
+    (r.vehiculeNom ? ` (${r.vehiculeNom}` + (r.depart && r.retour ? `, du ${formateDate(r.depart)} au ${formateDate(r.retour)}` : "") + ")" : "") +
+    `. Vous pouvez le consulter et le télécharger ici : ${lienContrat(jeton)} . Il sera signé ensemble à la remise du véhicule.`;
+}
+
+async function renderContrat(r, fiche) {
+  const bloc = document.getElementById("bloc-contrat");
+  let existant = null;
+  if (r.contrat) {
+    try { existant = await lireDocument("contrats", r.contrat, { idToken: session.idToken }); } catch {}
+    if (selectionId !== r.id) return;
+  }
+  const tarif = TARIFS[r.vehicule] || {};
+  const jours = joursLocation(r);
+  const v = existant ? existant.vehicule || {} : {};
+  const loc = existant ? existant.location || {} : {};
+  const val = (x, defaut) => escAttr(x ?? defaut ?? "");
+  const paiement = loc.paiement || "Carte bancaire (CMI)";
+  bloc.innerHTML = `<h3>Contrat ${existant ? '<span class="statut" data-s="Confirmée">Généré</span>' : ""}</h3>
+    ${existant ? `<a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienContrat(r.contrat))}">Voir le contrat</a>
+      <a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(r.telephone, messageContrat(r, existant, r.contrat)))}">Envoyer le contrat par WhatsApp</a>` : ""}
+    <form id="form-contrat" class="form-contrat">
+      <label>Immatriculation<input name="immatriculation" required value="${val(v.immatriculation)}"></label>
+      <label>Carburant<input name="carburant" value="${val(v.carburant, tarif.carburant)}"></label>
+      <label>Kilométrage au départ<input name="kmDepart" type="number" min="0" value="${val(existant && existant.kmDepart)}" placeholder="à la remise"></label>
+      <label>Prix total TTC (MAD)<input name="prixTotal" type="number" min="0" required value="${val(loc.prixTotal, tarif.prixJour ? tarif.prixJour * jours : "")}"></label>
+      <label>Caution (MAD)<input name="caution" type="number" min="0" required value="${val(loc.caution)}"></label>
+      <label>Paiement<select name="paiement">${["Carte bancaire (CMI)", "Virement", "Espèces"].map((p) => `<option${p === paiement ? " selected" : ""}>${p}</option>`).join("")}</select></label>
+      <label class="large">Options<input name="options" value="${val(loc.options)}" placeholder="siège bébé, conducteur additionnel…"></label>
+      <label class="large">Agent<input name="agent" value="${val(existant && existant.agent)}"></label>
+      <p class="aide large">${tarif.prixJour ? `Prix proposé : ${jours} jour${jours > 1 ? "s" : ""} × ${tarif.prixJour} MAD. Ajustez en cas de remise (tarif dégressif dès 7 jours).` : "Véhicule hors grille : saisissez le prix."}</p>
+      <button class="action large" type="submit">${existant ? "Mettre à jour le contrat" : "Générer le contrat"}</button>
+      <p id="etat-contrat" class="large"></p>
+    </form>`;
+  document.getElementById("form-contrat").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    enregistrerContrat(r, fiche, existant, ev.target);
+  });
+}
+
+async function enregistrerContrat(r, fiche, existant, form) {
+  const etat = document.getElementById("etat-contrat");
+  const bouton = form.querySelector("button");
+  const f = form.elements;
+  const tarif = TARIFS[r.vehicule] || {};
+  const kmSup = tarif.kmSup || 3;
+  const nombre = (x) => (x.value === "" ? "" : Number(x.value));
+  const locataire = {};
+  for (const k of ["nom", "prenom", "dateNaissance", "lieuNaissance", "nationalite", "adresse", "ville", "pays", "telephone", "email",
+    "typePiece", "numeroPiece", "expirationPiece", "numeroPermis", "delivrancePermis", "paysPermis"]) locataire[k] = fiche[k] || "";
+  const contrat = {
+    numero: existant ? existant.numero : `MCP-${new Date().getFullYear()}-${r.id.slice(0, 6).toUpperCase()}`,
+    reservationId: r.id,
+    societe: { ...SOCIETE },
+    locataire,
+    vehicule: { nom: r.vehiculeNom || tarif.nom || "", categorie: tarif.categorie || "", immatriculation: f.immatriculation.value.trim(), carburant: f.carburant.value.trim() },
+    location: {
+      formule: r.formule || "", depart: r.depart || "", lieuDepart: r.lieuPriseEnCharge || "", retour: r.retour || "", lieuRetour: r.lieuRestitution || "",
+      jours: joursLocation(r), prixJour: tarif.prixJour || "", prixTotal: nombre(f.prixTotal), caution: nombre(f.caution),
+      paiement: f.paiement.value, options: f.options.value.trim(), kmInclus: FRAIS.kmInclusParJour, kmSup,
+    },
+    agent: f.agent.value.trim(),
+    kmDepart: nombre(f.kmDepart),
+    conditions: conditionsGenerales(kmSup).map(([titre, texte]) => ({ titre, texte })),
+    modifieLe: new Date(),
+  };
+  bouton.disabled = true;
+  etat.className = "large";
+  etat.textContent = "Enregistrement…";
+  try {
+    if (existant) {
+      await corrigerDocument("contrats", r.contrat, contrat, { idToken: session.idToken });
+    } else {
+      const jeton = nouveauJeton();
+      await creerDocument("contrats", { ...contrat, creeLe: new Date() }, { idToken: session.idToken, id: jeton });
+      await corrigerDocument("reservations", r.id, { contrat: jeton }, { idToken: session.idToken });
+      r.contrat = jeton;
+    }
+    renderContrat(r, fiche);
+  } catch (e) {
+    bouton.disabled = false;
+    etat.className = "large erreur";
+    etat.textContent = "Échec : " + e.message;
+  }
 }
 
 function anneesEntre(debut, fin) {
@@ -318,7 +419,7 @@ function telWhatsApp(tel) {
 }
 
 function messageConfirmation(r) {
-  return `Bonjour, ici Excellence VIPs. Votre réservation` +
+  return `Bonjour, ici Malysia Car Pro. Votre réservation` +
     (r.vehiculeNom ? ` pour ${r.vehiculeNom}` : "") +
     (r.depart && r.retour ? ` du ${formateDate(r.depart)} au ${formateDate(r.retour)}` : "") +
     ` est confirmée. À bientôt !`;
@@ -338,7 +439,7 @@ function actionPour(statut) {
         aide: "À utiliser une fois le paiement et la caution encaissés." };
     case "Payée":
       return { libelle: "Marquer prête à livrer", prochain: "Prête à livrer",
-        aide: "Affecte la réservation à la livraison. L'état des lieux et le contrat sont à gérer à part pour l'instant." };
+        aide: "Affecte la réservation à la livraison. Le contrat se signe à la remise du véhicule." };
     default:
       return { libelle: "", prochain: null, aide: "Cette demande est arrivée au bout du parcours actuel." };
   }

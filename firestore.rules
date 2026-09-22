@@ -51,5 +51,12 @@ service cloud.firestore {
         allow read, update, delete: if request.auth != null;
       }
     }
+
+    // Contrats : établis par l'équipe, consultables par le client via le
+    // lien (identifiant long et aléatoire) envoyé par WhatsApp. Jamais listables.
+    match /contrats/{jeton} {
+      allow get: if true;
+      allow list, create, update, delete: if request.auth != null;
+    }
   }
 }

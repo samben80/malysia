@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contrat de location — Malysia Car Pro</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="favicon.ico" sizes="any">
+<style>
+@font-face{font-family:'Cinzel';font-style:normal;font-weight:500;font-display:swap;src:url('fonts/cinzel-500-latin.woff2') format('woff2');}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:400;font-display:swap;src:url('fonts/jakarta-400-latin.woff2') format('woff2');}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:700;font-display:swap;src:url('fonts/jakarta-700-latin.woff2') format('woff2');}
+:root{--fond:#EFE7DB;--papier:#FFFFFF;--filet:#D9C8B4;--titre-fond:#F4ECE1;--accent:#8A5236;--encre:#2C211A;--texte2:#6F5B4B}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--fond);color:var(--encre);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:12px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.barre{position:sticky;top:0;z-index:2;background:#241A14;color:#F4ECE1;padding:10px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13px}
+.barre button{background:#C08A64;color:#fff;border:0;padding:10px 16px;font-family:inherit;font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.page{background:var(--papier);width:210mm;max-width:100%;margin:16px auto;padding:12mm 12mm 10mm;box-shadow:0 1px 6px rgba(0,0,0,.12)}
+.entete{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid var(--accent);padding-bottom:8px;margin-bottom:10px}
+.entete img{height:48px;width:auto}
+.entete h1{font-family:Cinzel,serif;font-weight:500;font-size:22px;letter-spacing:.08em;margin:0}
+.entete .numero{font-size:12px;color:var(--texte2);text-align:right}
+.entete .numero b{display:block;color:var(--encre);font-size:13px}
+.coord{font-size:10.5px;color:var(--texte2);margin:0 0 10px}
+.duo{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--filet);margin-bottom:10px}
+.duo>section{padding:0 0 8px}
+.duo>section+section{border-left:1px solid var(--filet)}
+h2{background:var(--titre-fond);font-size:11px;letter-spacing:.12em;text-transform:uppercase;text-align:center;margin:0 0 6px;padding:5px;border-bottom:1px solid var(--filet)}
+dl{margin:0;padding:0 10px;display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px}
+dt{color:var(--texte2)}
+dd{margin:0;font-weight:700;overflow-wrap:anywhere}
+.etat{display:grid;grid-template-columns:1.5fr 1fr;border:1px solid var(--filet);margin-bottom:8px}
+.etat .schema{padding:6px 10px;border-right:1px solid var(--filet)}
+.etat .schema p{margin:0 0 4px;font-size:10.5px;color:var(--texte2);text-align:center}
+.etat svg{width:100%;height:auto;display:block}
+.etat .mesures{display:grid;grid-template-rows:auto auto 1fr}
+.etat .mesures>div{padding:6px 10px;border-bottom:1px solid var(--filet)}
+.etat .mesures>div:last-child{border-bottom:0}
+.ligne-vide{border-bottom:1px dotted var(--texte2);height:18px;margin-top:4px}
+.jauge{display:flex;gap:10px;margin-top:6px}
+.jauge span{display:flex;align-items:center;gap:3px}
+.jauge i{display:inline-block;width:11px;height:11px;border:1px solid var(--encre)}
+.attestation{font-size:10.5px;margin:0 0 8px}
+.signatures{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.signatures div{border:1px solid var(--filet);height:26mm;padding:6px 8px;font-weight:700;font-size:11px}
+.fin table{width:100%;border-collapse:collapse;margin-bottom:10px}
+.fin td{border:1px solid var(--filet);padding:6px 8px;vertical-align:top}
+.fin td.montant{width:32%;text-align:right;white-space:nowrap}
+.conditions{column-count:2;column-gap:8mm;font-size:10px;line-height:1.4}
+.conditions h3{font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin:6px 0 1px;color:var(--accent);break-after:avoid}
+.conditions p{margin:0 0 4px;text-align:justify}
+.pied{font-size:9.5px;color:var(--texte2);text-align:center;margin-top:8px}
+.message{max-width:520px;margin:60px auto;background:var(--papier);padding:28px;text-align:center;font-size:15px}
+[hidden]{display:none!important}
+@media (max-width:760px){
+  .page{padding:14px}
+  .duo,.etat{grid-template-columns:1fr}
+  .duo>section+section{border-left:0;border-top:1px solid var(--filet)}
+  .etat .schema{border-right:0;border-bottom:1px solid var(--filet)}
+  .conditions{column-count:1}
+}
+@page{size:A4;margin:0}
+@media print{
+  html,body{background:#fff}
+  .barre{display:none}
+  .page{box-shadow:none;margin:0;width:210mm;min-height:297mm;break-after:page}
+  .page:last-child{break-after:auto}
+}
+</style>
+</head>
+<body>
+<div class="barre" id="barre" hidden>
+  <span id="barre-titre">Contrat de location</span>
+  <button type="button" id="imprimer">Télécharger en PDF</button>
+</div>
+<div class="message" id="chargement">Chargement du contrat…</div>
+<div class="message" id="introuvable" hidden>Ce lien de contrat n'existe pas ou n'est plus valable. Contactez-nous au <a href="tel:+212661997988">+212 661 99 79 88</a>.</div>
+<main id="contrat" hidden></main>
+<script src="firebase-config.js" defer></script>
+<script type="module" src="assets/contrat.js"></script>
+</body>
+</html>
