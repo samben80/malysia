@@ -185,7 +185,7 @@ section[id],header{scroll-margin-top:96px}
       <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px;">
         <input type="radio" name="mode" id="mode-sans" value="Sans chauffeur" class="vh mode-r" checked><label for="mode-sans" class="chip">Sans chauffeur</label><input type="radio" name="mode" id="mode-avec" value="Avec chauffeur" class="vh mode-r"><label for="mode-avec" class="chip">Avec chauffeur</label><input type="radio" name="mode" id="mode-transfert" value="Transfert aéroport" class="vh mode-r"><label for="mode-transfert" class="chip">Transfert aéroport</label>
       </div>
-      <form name="reservation" method="POST" data-netlify="true" netlify-honeypot="societe" action="merci.html" style="display: contents;"><input type="hidden" name="form-name" value="reservation"><p class="vh"><label>Ne pas remplir <input name="societe"></label></p><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: rgba(138, 82, 54, 0.12); border: 1px solid rgba(138, 82, 54, 0.12);">
+      <form name="reservation" method="POST" data-netlify="true" netlify-honeypot="societe" action="merci.html"><input type="hidden" name="form-name" value="reservation"><input type="hidden" name="vehicule" id="champ-vehicule"><p class="vh"><label>Ne pas remplir <input name="societe"></label></p><p id="vehicule-choisi-info" hidden style="grid-column: 1/-1; margin: 0; padding: 12px 18px; background: rgba(138,82,54,.08); font-size: 13px; color: #7A6656;"></p><p id="dispo-info" hidden style="grid-column: 1/-1; margin: 0; padding: 0 18px 4px; font-size: 13px; color: #8A5236;"></p><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: rgba(138, 82, 54, 0.12); border: 1px solid rgba(138, 82, 54, 0.12);">
         <label style="background: rgb(242, 234, 220); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;">
           <span style="font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(122, 102, 86);">Prise en charge</span>
           <input name="lieu_prise_en_charge" type="text" placeholder="Aéroport Mohammed V, Casablanca" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26);">
@@ -291,7 +291,7 @@ section[id],header{scroll-margin-top:96px}
                 <span style="font-family: Cinzel, serif; font-weight: 500; font-size: 25px; color: rgb(138, 82, 54);">290</span>
                 <span style="font-size: 12.5px; color: rgb(122, 102, 86);">MAD / jour</span>
               </span>
-              <a href="#reservation" class="scp5" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
+              <a href="#reservation" class="scp5" data-vehicule-id="veh-dacia-logan" data-vehicule-nom="Dacia Logan" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
             </div>
           </div>
         </article>
@@ -320,7 +320,7 @@ section[id],header{scroll-margin-top:96px}
                 <span style="font-family: Cinzel, serif; font-weight: 500; font-size: 25px; color: rgb(138, 82, 54);">480</span>
                 <span style="font-size: 12.5px; color: rgb(122, 102, 86);">MAD / jour</span>
               </span>
-              <a href="#reservation" class="scp5" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
+              <a href="#reservation" class="scp5" data-vehicule-id="veh-golf-8" data-vehicule-nom="Volkswagen Golf 8" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
             </div>
           </div>
         </article>
@@ -349,7 +349,7 @@ section[id],header{scroll-margin-top:96px}
                 <span style="font-family: Cinzel, serif; font-weight: 500; font-size: 25px; color: rgb(138, 82, 54);">1 450</span>
                 <span style="font-size: 12.5px; color: rgb(122, 102, 86);">MAD / jour</span>
               </span>
-              <a href="#reservation" class="scp5" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
+              <a href="#reservation" class="scp5" data-vehicule-id="veh-mercedes-classe-e" data-vehicule-nom="Mercedes Classe E" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
             </div>
           </div>
         </article>
@@ -378,7 +378,7 @@ section[id],header{scroll-margin-top:96px}
                 <span style="font-family: Cinzel, serif; font-weight: 500; font-size: 25px; color: rgb(138, 82, 54);">2 200</span>
                 <span style="font-size: 12.5px; color: rgb(122, 102, 86);">MAD / jour</span>
               </span>
-              <a href="#reservation" class="scp5" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
+              <a href="#reservation" class="scp5" data-vehicule-id="veh-range-rover-sport" data-vehicule-nom="Range Rover Sport" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
             </div>
           </div>
         </article>
@@ -407,7 +407,7 @@ section[id],header{scroll-margin-top:96px}
                 <span style="font-family: Cinzel, serif; font-weight: 500; font-size: 25px; color: rgb(138, 82, 54);">5 900</span>
                 <span style="font-size: 12.5px; color: rgb(122, 102, 86);">MAD / jour</span>
               </span>
-              <a href="#reservation" class="scp5" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
+              <a href="#reservation" class="scp5" data-vehicule-id="veh-porsche-911" data-vehicule-nom="Porsche 911 Carrera" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
             </div>
           </div>
         </article>
@@ -436,7 +436,7 @@ section[id],header{scroll-margin-top:96px}
                 <span style="font-family: Cinzel, serif; font-weight: 500; font-size: 25px; color: rgb(138, 82, 54);">1 900</span>
                 <span style="font-size: 12.5px; color: rgb(122, 102, 86);">MAD / jour</span>
               </span>
-              <a href="#reservation" class="scp5" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
+              <a href="#reservation" class="scp5" data-vehicule-id="veh-mercedes-classe-v" data-vehicule-nom="Mercedes Classe V" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
             </div>
           </div>
         </article>
@@ -465,7 +465,7 @@ section[id],header{scroll-margin-top:96px}
                 <span style="font-family: Cinzel, serif; font-weight: 500; font-size: 25px; color: rgb(138, 82, 54);">550</span>
                 <span style="font-size: 12.5px; color: rgb(122, 102, 86);">MAD / jour</span>
               </span>
-              <a href="#reservation" class="scp5" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
+              <a href="#reservation" class="scp5" data-vehicule-id="veh-renault-master" data-vehicule-nom="Renault Master 12 m³" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
             </div>
           </div>
         </article>
@@ -494,7 +494,7 @@ section[id],header{scroll-margin-top:96px}
                 <span style="font-family: Cinzel, serif; font-weight: 500; font-size: 25px; color: rgb(138, 82, 54);">750</span>
                 <span style="font-size: 12.5px; color: rgb(122, 102, 86);">MAD / jour</span>
               </span>
-              <a href="#reservation" class="scp5" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
+              <a href="#reservation" class="scp5" data-vehicule-id="veh-hyundai-tucson" data-vehicule-nom="Hyundai Tucson" style="border: 1px solid rgb(122, 102, 86); color: rgb(138, 82, 54); padding: 10px 16px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;">Réserver</a>
             </div>
           </div>
         </article>
@@ -723,5 +723,8 @@ section[id],header{scroll-margin-top:96px}
       <span>Permis de conduire requis · Âge minimum 21 ans · 2 ans de permis</span>
     </div>
   </footer></div>
+<script src="firebase-config.js" defer></script>
+<script type="module" src="assets/reservations.js"></script>
+
 </body>
 </html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Back-office — Malysia Car Pro</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<style>
+@font-face{font-family:'Cinzel';font-style:normal;font-weight:500;font-display:swap;src:url('../fonts/cinzel-500-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:400;font-display:swap;src:url('../fonts/jakarta-400-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:700;font-display:swap;src:url('../fonts/jakarta-700-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('../fonts/plexmono-400-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+
+:root{
+  --fond:#F6F0E6; --surface:#FFFFFF; --filet:#E6DACB; --filet-clair:#F0E7DA;
+  --sidebar:#241A14; --sidebar-texte:#D9C8B9; --sidebar-titre:#FBF3EA; --sidebar-filet:#3E2C21;
+  --accent:#A0603F; --accent-clair:#C08A64; --encre:#2C211A; --texte2:#8C7767;
+  --positif:#4A7A56; --attente:#B0793A; --negatif:#A0453F;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--fond);min-height:100%}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--encre);-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:Cinzel,serif;font-weight:500;margin:0}
+button{font-family:inherit;cursor:pointer}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---- écran de connexion ---- */
+#ecran-connexion{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+#ecran-connexion form{background:var(--surface);border:1px solid var(--filet);padding:36px 32px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:16px}
+#ecran-connexion h1{font-size:15px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:4px}
+#ecran-connexion p.sous-titre{margin:0 0 20px;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2);font-family:'IBM Plex Mono',monospace}
+#ecran-connexion label{display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2)}
+#ecran-connexion input{border:1px solid var(--filet);padding:12px 14px;font-size:14.5px;font-family:inherit;background:var(--fond)}
+#ecran-connexion button{background:var(--accent);color:#fff;border:0;padding:13px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;margin-top:6px}
+#ecran-connexion button:disabled{opacity:.6;cursor:default}
+#erreur-connexion{color:var(--negatif);font-size:13px;margin:0;min-height:1.2em}
+#ecran-connexion .retour{font-size:12.5px;color:var(--texte2);text-align:center;margin-top:4px}
+
+/* ---- coquille du back-office ---- */
+#app{display:none;grid-template-columns:252px 1fr;min-height:100vh}
+#app.actif{display:grid}
+aside{background:var(--sidebar);color:var(--sidebar-texte);padding:26px 22px;display:flex;flex-direction:column;gap:28px}
+aside .marque{display:flex;align-items:center;gap:12px}
+aside .marque img{height:34px;width:auto}
+aside .marque span{display:block;font-size:11px;letter-spacing:.14em;color:var(--sidebar-titre)}
+aside .marque small{display:block;font-size:9px;letter-spacing:.2em;color:var(--sidebar-texte);opacity:.7}
+aside nav{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--sidebar-filet);padding-top:18px}
+aside nav a{color:var(--sidebar-texte);text-decoration:none;font-size:12.5px;letter-spacing:.06em;padding:10px 10px;display:flex;justify-content:space-between}
+aside nav a.actif{background:rgba(255,255,255,.06);color:var(--sidebar-titre)}
+aside nav a .badge{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--accent-clair)}
+aside .retour-site{margin-top:auto;font-size:12px;color:var(--sidebar-texte);border-top:1px solid var(--sidebar-filet);padding-top:16px}
+aside .retour-site a{color:var(--sidebar-texte)}
+aside .qui{font-size:11.5px;color:var(--sidebar-texte);opacity:.75;display:flex;justify-content:space-between;align-items:center}
+aside .qui button{background:none;border:0;color:var(--accent-clair);font-size:11px;padding:0}
+
+main{padding:32px 36px}
+main h1{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
+.entete{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:24px}
+.entete .date{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--texte2)}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--filet);border:1px solid var(--filet);margin-bottom:28px}
+.kpi{background:var(--surface);padding:16px 18px}
+.kpi .valeur{font-family:Cinzel,serif;font-size:24px;color:var(--accent)}
+.kpi .libelle{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2);margin-top:4px}
+
+.filtres{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.filtres button{background:transparent;border:1px solid var(--filet);color:var(--texte2);padding:9px 15px;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase}
+.filtres button.actif{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.disposition{display:grid;grid-template-columns:1.25fr 1fr;gap:24px;align-items:start}
+@media (max-width:1000px){.disposition{grid-template-columns:1fr}}
+
+#liste{background:var(--surface);border:1px solid var(--filet)}
+#liste .ligne{display:grid;grid-template-columns:1fr auto;gap:6px;padding:14px 18px;border-bottom:1px solid var(--filet-clair);cursor:pointer}
+#liste .ligne:last-child{border-bottom:0}
+#liste .ligne:hover{background:var(--fond)}
+#liste .ligne.selectionnee{background:var(--fond);box-shadow:inset 3px 0 0 var(--accent)}
+#liste .ligne .ref{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texte2)}
+#liste .ligne .vehicule{font-size:14.5px;margin-top:2px}
+#liste .ligne .dates{font-size:12px;color:var(--texte2);margin-top:2px}
+#liste .vide{padding:32px 18px;text-align:center;color:var(--texte2);font-size:13.5px}
+
+.statut{font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 8px;height:fit-content;white-space:nowrap}
+.statut[data-s="À confirmer"]{background:rgba(160,96,63,.12);color:var(--attente)}
+.statut[data-s="Confirmée"]{background:rgba(74,122,86,.12);color:var(--positif)}
+.statut[data-s="Payée"]{background:rgba(74,122,86,.2);color:var(--positif)}
+.statut[data-s="Prête à livrer"]{background:rgba(44,33,26,.1);color:var(--encre)}
+
+#fiche{background:var(--surface);border:1px solid var(--filet);padding:24px;position:sticky;top:24px}
+#fiche .vide{color:var(--texte2);font-size:13.5px;text-align:center;padding:40px 0}
+#fiche h2{font-size:16px;margin-bottom:2px}
+#fiche .ref{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texte2);margin-bottom:16px}
+#fiche .champs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;font-size:13.5px}
+#fiche .champs div span{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2);margin-bottom:3px}
+#fiche .action{width:100%;background:var(--accent);color:#fff;border:0;padding:14px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-top:8px}
+#fiche .action:disabled{opacity:.6}
+#fiche .aide{font-size:12px;color:var(--texte2);margin-top:10px;line-height:1.5}
+#fiche .tel{display:inline-block;margin-top:4px;font-family:'IBM Plex Mono',monospace}
+#etat-action{font-size:12.5px;margin-top:10px;min-height:1.2em}
+#etat-action.erreur{color:var(--negatif)}
+#etat-action.ok{color:var(--positif)}
+
+.vh{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+</style>
+</head>
+<body>
+
+<div id="ecran-connexion">
+  <form id="form-connexion" autocomplete="on">
+    <h1>Malysia Car Pro</h1>
+    <p class="sous-titre">Back-office</p>
+    <label>E-mail
+      <input type="email" name="email" autocomplete="username" required>
+    </label>
+    <label>Mot de passe
+      <input type="password" name="motdepasse" autocomplete="current-password" required>
+    </label>
+    <p id="erreur-connexion"></p>
+    <button type="submit">Se connecter</button>
+    <p class="retour"><a href="../">← Retour au site</a></p>
+  </form>
+</div>
+
+<div id="app">
+  <aside>
+    <div class="marque">
+      <img src="../assets/logo-emblem.webp" alt="" width="34" height="19">
+      <span>MALYSIA CAR PRO<small>BACK-OFFICE</small></span>
+    </div>
+    <nav>
+      <a class="actif" href="#">Réservations <span class="badge" id="nb-total">0</span></a>
+      <a href="#" data-desactive>Flotte <span class="badge">bientôt</span></a>
+      <a href="#" data-desactive>Clients <span class="badge">bientôt</span></a>
+      <a href="#" data-desactive>Facturation <span class="badge">bientôt</span></a>
+    </nav>
+    <div class="qui">
+      <span id="qui-connecte"></span>
+      <button id="deconnexion" type="button">Se déconnecter</button>
+    </div>
+    <div class="retour-site"><a href="../">← Retour au site</a></div>
+  </aside>
+
+  <main>
+    <div class="entete">
+      <h1>Réservations</h1>
+      <span class="date" id="date-du-jour"></span>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="valeur" id="kpi-a-confirmer">—</div><div class="libelle">À confirmer</div></div>
+      <div class="kpi"><div class="valeur" id="kpi-confirmees">—</div><div class="libelle">Confirmées</div></div>
+      <div class="kpi"><div class="valeur" id="kpi-total">—</div><div class="libelle">Total (30 j)</div></div>
+    </div>
+
+    <div class="filtres" id="filtres">
+      <button class="actif" data-statut="">Toutes</button>
+      <button data-statut="À confirmer">À confirmer</button>
+      <button data-statut="Confirmée">Confirmée</button>
+      <button data-statut="Payée">Payée</button>
+      <button data-statut="Prête à livrer">Prête à livrer</button>
+    </div>
+
+    <div class="disposition">
+      <div id="liste"><div class="vide">Chargement…</div></div>
+      <div id="fiche"><div class="vide">Sélectionnez une demande dans la liste.</div></div>
+    </div>
+  </main>
+</div>
+
+<script src="../firebase-config.js" defer></script>
+<script type="module" src="./backoffice.js"></script>
+</body>
+</html>
