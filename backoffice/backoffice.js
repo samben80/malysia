@@ -167,10 +167,31 @@ function renderFiche() {
       ? `<button class="action" id="bouton-action">${libelle}</button><p class="aide">${aide}</p>`
       : `<p class="aide">${aide}</p>`}
     <p id="etat-action"></p>
+    ${r.statut !== "À confirmer" && r.telephone
+      ? `<a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(r))}">Prévenir le client par WhatsApp</a>`
+      : ""}
   `;
   if (prochain) {
     document.getElementById("bouton-action").addEventListener("click", () => appliquerAction(r, prochain));
   }
+}
+
+// ---- message client (WhatsApp) : le numéro suffit, pas besoin que le client ait un compte
+
+function telWhatsApp(tel) {
+  const chiffres = String(tel || "").replace(/[^\d+]/g, "");
+  if (chiffres.startsWith("+")) return chiffres.slice(1);
+  if (chiffres.startsWith("0")) return "212" + chiffres.slice(1);
+  return chiffres;
+}
+
+function lienWhatsApp(r) {
+  const message =
+    `Bonjour, ici Excellence VIPs. Votre réservation` +
+    (r.vehiculeNom ? ` pour ${r.vehiculeNom}` : "") +
+    (r.depart && r.retour ? ` du ${formateDate(r.depart)} au ${formateDate(r.retour)}` : "") +
+    ` est confirmée. À bientôt !`;
+  return `https://wa.me/${telWhatsApp(r.telephone)}?text=${encodeURIComponent(message)}`;
 }
 
 function actionPour(statut) {
