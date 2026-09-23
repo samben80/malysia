@@ -7,10 +7,12 @@ import {
   majDisponibilite, alertesVehicule, reservationsVehicule, formateDate, nombre, mad, escHTML, escAttr,
   champ, valeursFormulaire, badge, blocAlertes, normaliserImmat, cleImmat, aujourdhuiISO, executer,
 } from "./commun.js";
+import { lireTableur, versDateISO } from "./lecteur-tableur.js";
 
 let filtre = "";
 let selection = null; // id du véhicule ouvert, ou "nouveau"
 let section = null;
+let importation = null; // null, ou { lignes analysées, bilan } pendant un import Excel
 
 export function afficherFlotte(el, param) {
   section = el;
@@ -28,7 +30,8 @@ function rendre() {
     : filtre ? tries.filter((v) => v.statut === filtre) : tries;
 
   section.innerHTML = `
-    <div class="entete"><h1>Flotte</h1><button class="bouton" id="ajouter-vehicule">+ Ajouter un véhicule</button></div>
+    <div class="entete"><h1>Flotte</h1><div class="actions-entete"><button class="bouton secondaire" id="importer-flotte">Importer depuis Excel</button><button class="bouton" id="ajouter-vehicule">+ Ajouter un véhicule</button></div></div>
+    ${importation ? '<div class="panneau" id="zone-import"></div>' : ""}
     <div class="kpis">
       <div class="kpi"><div class="valeur">${compte("Disponible")}</div><div class="libelle">Disponibles</div></div>
       <div class="kpi"><div class="valeur">${compte("En circulation")}</div><div class="libelle">En circulation</div></div>
@@ -46,6 +49,8 @@ function rendre() {
     </div>`;
 
   section.querySelector("#ajouter-vehicule").addEventListener("click", () => { selection = "nouveau"; rendre(); });
+  section.querySelector("#importer-flotte").addEventListener("click", () => { importation = { lignes: null }; rendre(); });
+  if (importation) rendreImport(section.querySelector("#zone-import"));
   section.querySelectorAll("[data-filtre]").forEach((b) => b.addEventListener("click", () => { filtre = b.dataset.filtre; rendre(); }));
   section.querySelectorAll(".liste .ligne").forEach((l) => l.addEventListener("click", () => { selection = l.dataset.id; rendre(); }));
   rendreFiche();
@@ -192,3 +197,156 @@ async function enregistrerVehicule(v, form) {
     }
   });
 }
+
+// ---- import en masse depuis le modèle Excel (backoffice/modele-import-flotte.xlsx) ou un CSV
+
+const sansAccents = (x) => String(x ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// en-tête normalisé (début) → champ du véhicule
+const COLONNES = [
+  ["immatriculation", "immatriculation"], ["modele", "modele"], ["couleur", "couleur"], ["annee", "annee"],
+  ["carburant", "carburant"], ["kilometrage", "kmActuel"], ["km", "kmActuel"], ["ndechassis", "chassis"], ["numerodechassis", "chassis"], ["chassis", "chassis"],
+  ["vin", "chassis"], ["statut", "statut"], ["disponible", "disponibleLe"], ["assurance", "assurance"],
+  ["visite", "visiteTechnique"], ["vignette", "vignette"], ["vidange", "intervalleVidangeKm"], ["pneus", "intervallePneusKm"], ["notes", "notes"],
+];
+const DATES = ["disponibleLe", "assurance", "visiteTechnique", "vignette"];
+const ENTIERS = ["annee", "kmActuel", "intervalleVidangeKm", "intervallePneusKm"];
+
+function trouverModele(valeur) {
+  const v = sansAccents(valeur);
+  if (!v) return null;
+  const entrees = Object.entries(MODELES);
+  const exact = entrees.find(([id, m]) => sansAccents(m.nom) === v || sansAccents(id) === v || sansAccents(id.replace(/^veh-/, "")) === v);
+  if (exact) return exact[0];
+  const partiels = entrees.filter(([, m]) => sansAccents(m.nom).includes(v) || v.includes(sansAccents(m.nom)));
+  return partiels.length === 1 ? partiels[0][0] : null;
+}
+
+function analyser(tableau) {
+  const entetes = (tableau[0] || []).map(sansAccents);
+  const champs = entetes.map((e) => (COLONNES.find(([debut]) => e.startsWith(debut)) || [])[1] || null);
+  if (!champs.includes("immatriculation") || !champs.includes("modele")) {
+    throw new Error("les colonnes « Immatriculation » et « Modèle » sont introuvables. Utilisez le modèle Excel fourni.");
+  }
+  const existantes = new Set(etat.donnees.vehicules.map((v) => cleImmat(v.immatriculation)));
+  const vues = new Set();
+  const lignes = [];
+  tableau.slice(1).forEach((cellules, i) => {
+    if (!cellules.some((c) => String(c ?? "").trim() !== "")) return; // ligne vide
+    const brut = {};
+    champs.forEach((champ, k) => { if (champ && brut[champ] === undefined) brut[champ] = cellules[k] ?? ""; });
+    const erreurs = [];
+    const v = { statut: "Disponible", disponibleLe: "" };
+    v.immatriculation = normaliserImmat(brut.immatriculation);
+    if (!v.immatriculation) erreurs.push("immatriculation manquante");
+    v.modele = trouverModele(brut.modele);
+    if (!v.modele) erreurs.push(brut.modele ? `modèle « ${brut.modele} » inconnu` : "modèle manquant");
+    for (const champ of ["couleur", "chassis", "notes"]) v[champ] = String(brut[champ] ?? "").trim();
+    for (const champ of ENTIERS) {
+      const t = String(brut[champ] ?? "").replace(/[\s\u202f\u00a0]/g, "").replace(/km$/i, "");
+      if (t === "") { v[champ] = ""; continue; }
+      const n = Number(t.replace(",", "."));
+      if (!Number.isFinite(n) || n < 0) erreurs.push(`${champ === "kmActuel" ? "kilométrage" : champ === "annee" ? "année" : "intervalle"} « ${brut[champ]} » invalide`);
+      else v[champ] = Math.round(n);
+    }
+    if (v.kmActuel === "") erreurs.push("kilométrage manquant");
+    if (v.intervalleVidangeKm === "") v.intervalleVidangeKm = INTERVALLE_VIDANGE_KM;
+    if (v.intervallePneusKm === "") v.intervallePneusKm = INTERVALLE_PNEUS_KM;
+    for (const champ of DATES) {
+      const d = versDateISO(brut[champ]);
+      if (d === null) { erreurs.push(`date « ${brut[champ]} » illisible`); v[champ] = ""; } else v[champ] = d;
+    }
+    if (String(brut.statut ?? "").trim()) {
+      const s = STATUTS_VEHICULE.find((x) => sansAccents(x) === sansAccents(brut.statut));
+      if (s) v.statut = s; else erreurs.push(`statut « ${brut.statut} » inconnu`);
+    }
+    if (v.statut !== "En réparation") v.disponibleLe = "";
+    const carburant = String(brut.carburant ?? "").trim();
+    v.carburant = carburant || (v.modele && MODELES[v.modele].carburant) || "";
+    let etatLigne = erreurs.length ? "erreur" : "ok";
+    const cle = cleImmat(v.immatriculation);
+    if (etatLigne === "ok" && existantes.has(cle)) { etatLigne = "ignoree"; erreurs.push("déjà dans la flotte, ignorée"); }
+    else if (etatLigne === "ok" && vues.has(cle)) { etatLigne = "erreur"; erreurs.push("immatriculation en double dans le fichier"); }
+    if (cle) vues.add(cle);
+    lignes.push({ numero: i + 2, vehicule: v, etat: etatLigne, message: erreurs.join(", ") });
+  });
+  return lignes;
+}
+
+function rendreImport(zone) {
+  const imp = importation;
+  if (!imp.lignes) {
+    zone.innerHTML = `
+      <h2>Importer des véhicules</h2>
+      <p class="aide">1. Téléchargez le <a href="modele-import-flotte.xlsx" download>modèle Excel</a> et remplissez une ligne par véhicule (immatriculation, modèle, kilométrage au minimum).<br>
+      2. Choisissez le fichier rempli (.xlsx ou .csv). Rien n'est enregistré avant votre validation.</p>
+      <label class="bouton secondaire">Choisir le fichier<input type="file" id="fichier-import" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden></label>
+      <button class="bouton secondaire" id="fermer-import" type="button">Fermer</button>
+      <p class="etat" id="etat-import"></p>`;
+    zone.querySelector("#fermer-import").addEventListener("click", () => { importation = null; rendre(); });
+    zone.querySelector("#fichier-import").addEventListener("change", async (ev) => {
+      const etatEl = zone.querySelector("#etat-import");
+      const fichier = ev.target.files[0];
+      if (!fichier) return;
+      etatEl.className = "etat";
+      etatEl.textContent = "Lecture du fichier…";
+      try {
+        const tableau = await lireTableur(fichier, { feuillePreferee: "Véhicules", colonneRepere: "Immatriculation" });
+        importation = { lignes: analyser(tableau), fichier: fichier.name };
+        rendre();
+      } catch (e) {
+        etatEl.className = "etat erreur";
+        etatEl.textContent = "Fichier refusé : " + e.message;
+      }
+    });
+    return;
+  }
+  const aImporter = imp.lignes.filter((l) => l.etat === "ok");
+  const libelleEtat = { ok: "À importer", erreur: "Erreur", ignoree: "Ignorée", importee: "Importée", echec: "Échec" };
+  zone.innerHTML = `
+    <h2>Aperçu de l'import</h2>
+    <p class="aide">${escHTML(imp.fichier || "")} : ${imp.lignes.length} ligne${imp.lignes.length > 1 ? "s" : ""} lue${imp.lignes.length > 1 ? "s" : ""}.
+      ${imp.termine ? "" : `${aImporter.length} prête${aImporter.length > 1 ? "s" : ""} à importer. Les lignes en erreur sont écartées : corrigez-les dans le fichier et réimportez-le, les véhicules déjà créés seront ignorés.`}</p>
+    <div class="defilement"><table class="tableau">
+      <thead><tr><th>Ligne</th><th>Immatriculation</th><th>Modèle</th><th>Km</th><th>Statut</th><th>Résultat</th></tr></thead>
+      <tbody>${imp.lignes.map((l) => `<tr class="import-${l.etat}">
+        <td>${l.numero}</td><td class="immat">${escHTML(l.vehicule.immatriculation || "—")}</td>
+        <td>${escHTML(l.vehicule.modele ? nomModele(l.vehicule.modele) : "—")}</td><td>${l.vehicule.kmActuel === "" ? "—" : nombre(l.vehicule.kmActuel)}</td>
+        <td>${escHTML(l.vehicule.statut)}${l.vehicule.disponibleLe ? " (" + formateDate(l.vehicule.disponibleLe) + ")" : ""}</td>
+        <td>${badge(libelleEtat[l.etat])}${l.message ? ` <small>${escHTML(l.message)}</small>` : ""}</td></tr>`).join("")}</tbody>
+    </table></div>
+    ${imp.termine ? "" : `<button class="bouton" id="lancer-import" ${aImporter.length ? "" : "disabled"}>Importer ${aImporter.length} véhicule${aImporter.length > 1 ? "s" : ""}</button>`}
+    <button class="bouton secondaire" id="fermer-import" type="button">${imp.termine ? "Fermer" : "Annuler"}</button>
+    <p class="etat" id="etat-import">${imp.termine ? escHTML(imp.termine) : ""}</p>`;
+  zone.querySelector("#fermer-import").addEventListener("click", () => { importation = null; rendre(); });
+  const lancer = zone.querySelector("#lancer-import");
+  if (lancer) lancer.addEventListener("click", () => importer(zone));
+}
+
+async function importer(zone) {
+  const lignes = importation.lignes.filter((l) => l.etat === "ok");
+  zone.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+  const etatEl = zone.querySelector("#etat-import");
+  const modeles = new Set();
+  let faits = 0, echecs = 0;
+  for (const l of lignes) {
+    etatEl.textContent = `Import en cours… ${faits + echecs + 1} / ${lignes.length}`;
+    try {
+      const cree = await creerDocument("vehicules", { ...l.vehicule, creeLe: new Date(), source: "import" }, jeton());
+      etat.donnees.vehicules.push(cree);
+      modeles.add(cree.modele);
+      l.etat = "importee";
+      faits++;
+    } catch (e) {
+      l.etat = "echec";
+      l.message = e.message;
+      echecs++;
+    }
+  }
+  etatEl.textContent = "Mise à jour des disponibilités du site…";
+  let dispo = "";
+  try { for (const m of modeles) await majDisponibilite(m); } catch (e) { dispo = " La disponibilité du site n'a pas pu être recalculée : " + e.message; }
+  importation.termine = `${faits} véhicule${faits > 1 ? "s" : ""} importé${faits > 1 ? "s" : ""}${echecs ? `, ${echecs} en échec` : ""}.${dispo}`;
+  rendre();
+}
+

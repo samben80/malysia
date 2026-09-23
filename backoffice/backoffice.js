@@ -63,7 +63,9 @@ async function afficherApp() {
   quiConnecte.textContent = etat.session.email;
   listeEl.innerHTML = '<div class="vide">Chargement…</div>';
   try {
+    etat.pret = false;
     const refusees = await chargerTout();
+    etat.pret = true;
     document.getElementById("bandeau-regles").hidden = refusees.length === 0;
   } catch (e) {
     if (e.status === 401 || e.status === 403) {
@@ -116,7 +118,7 @@ const ECRANS = {
 };
 
 function router() {
-  if (!etat.session) return;
+  if (!etat.session || !etat.pret) return; // données pas encore chargées : afficherApp rappellera router()
   const [nom, param, param2] = location.hash.replace(/^#/, "").split("/").map(decodeURIComponent);
   const ecran = ECRANS[nom] ? nom : "reservations";
   document.querySelectorAll("[data-vue]").forEach((s) => { s.hidden = s.dataset.vue !== ecran; });
