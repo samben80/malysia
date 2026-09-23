@@ -72,47 +72,52 @@ main h1{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
 .disposition{display:grid;grid-template-columns:1.25fr 1fr;gap:24px;align-items:start}
 @media (max-width:1000px){.disposition{grid-template-columns:1fr}}
 
-#liste{background:var(--surface);border:1px solid var(--filet)}
-#liste .ligne{display:grid;grid-template-columns:1fr auto;gap:6px;padding:14px 18px;border-bottom:1px solid var(--filet-clair);cursor:pointer}
-#liste .ligne:last-child{border-bottom:0}
-#liste .ligne:hover{background:var(--fond)}
-#liste .ligne.selectionnee{background:var(--fond);box-shadow:inset 3px 0 0 var(--accent)}
-#liste .ligne .ref{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texte2)}
-#liste .ligne .vehicule{font-size:14.5px;margin-top:2px}
-#liste .ligne .dates{font-size:12px;color:var(--texte2);margin-top:2px}
-#liste .vide{padding:32px 18px;text-align:center;color:var(--texte2);font-size:13.5px}
+.liste{background:var(--surface);border:1px solid var(--filet)}
+.liste .ligne{display:grid;grid-template-columns:1fr auto;gap:6px;padding:14px 18px;border-bottom:1px solid var(--filet-clair);cursor:pointer}
+.liste .ligne:last-child{border-bottom:0}
+.liste .ligne:hover{background:var(--fond)}
+.liste .ligne.selectionnee{background:var(--fond);box-shadow:inset 3px 0 0 var(--accent)}
+.liste .ligne .ref{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texte2)}
+.liste .ligne .vehicule{font-size:14.5px;margin-top:2px}
+.liste .ligne .dates{font-size:12px;color:var(--texte2);margin-top:2px}
+.liste .vide{padding:32px 18px;text-align:center;color:var(--texte2);font-size:13.5px}
 
 .statut{font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 8px;height:fit-content;white-space:nowrap}
 .statut[data-s="À confirmer"]{background:rgba(160,96,63,.12);color:var(--attente)}
 .statut[data-s="Confirmée"]{background:rgba(74,122,86,.12);color:var(--positif)}
 .statut[data-s="Payée"]{background:rgba(74,122,86,.2);color:var(--positif)}
 .statut[data-s="Prête à livrer"]{background:rgba(44,33,26,.1);color:var(--encre)}
+.statut[data-s="En cours"],.statut[data-s="En circulation"]{background:rgba(58,94,140,.12);color:#3A5E8C}
+.statut[data-s="Terminée"],.statut[data-s="Hors service"]{background:rgba(44,33,26,.07);color:var(--texte2)}
+.statut[data-s="Annulée"],.statut[data-s="Liste noire"]{background:rgba(160,69,63,.1);color:var(--negatif)}
+.statut[data-s="Disponible"],.statut[data-s="Payée"],.statut[data-s="Reçu"],.statut[data-s="Généré"]{background:rgba(74,122,86,.14);color:var(--positif)}
+.statut[data-s="En réparation"],.statut[data-s="À encaisser"],.statut[data-s="Partiellement payée"],.statut[data-s="Planifiée"],.statut[data-s="Sans fiche"]{background:rgba(176,121,58,.13);color:var(--attente)}
 
-#fiche{background:var(--surface);border:1px solid var(--filet);padding:24px;position:sticky;top:24px;max-height:calc(100vh - 48px);overflow:auto}
-#fiche .vide{color:var(--texte2);font-size:13.5px;text-align:center;padding:40px 0}
-#fiche h2{font-size:16px;margin-bottom:2px}
-#fiche .ref{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texte2);margin-bottom:16px}
-#fiche .champs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;font-size:13.5px}
-#fiche .champs div span{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2);margin-bottom:3px}
-#fiche .action{width:100%;background:var(--accent);color:#fff;border:0;padding:14px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-top:8px}
-#fiche .action:disabled{opacity:.6}
-#fiche .aide{font-size:12px;color:var(--texte2);margin-top:10px;line-height:1.5}
-#fiche .tel{display:inline-block;margin-top:4px;font-family:'IBM Plex Mono',monospace}
-#fiche .whatsapp{display:block;text-align:center;border:1px solid var(--positif);color:var(--positif);padding:12px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;margin-top:14px}
-#fiche .whatsapp:hover{background:rgba(74,122,86,.08)}
-#fiche .dossier{border-top:1px solid var(--filet);margin-top:22px;padding-top:18px}
-#fiche .dossier h3{font-size:13px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:10px}
-#fiche .action.secondaire{background:transparent;color:var(--accent);border:1px solid var(--accent)}
-#fiche .alerte{background:rgba(160,69,63,.08);color:var(--negatif);font-size:12.5px;padding:8px 12px;margin:10px 0 0}
-#fiche .pieces{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-#fiche .pieces figure{margin:0}
-#fiche .pieces img{width:100%;height:110px;object-fit:cover;border:1px solid var(--filet);cursor:zoom-in;display:block}
-#fiche .pieces figcaption{font-size:11px;color:var(--texte2);margin-top:4px}
+.fiche{background:var(--surface);border:1px solid var(--filet);padding:24px;position:sticky;top:24px;max-height:calc(100vh - 48px);overflow:auto}
+.fiche .vide{color:var(--texte2);font-size:13.5px;text-align:center;padding:40px 0}
+.fiche h2{font-size:16px;margin-bottom:2px}
+.fiche .ref{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texte2);margin-bottom:16px}
+.fiche .champs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;font-size:13.5px}
+.fiche .champs div span{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2);margin-bottom:3px}
+.fiche .action{width:100%;background:var(--accent);color:#fff;border:0;padding:14px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-top:8px}
+.fiche .action:disabled{opacity:.6}
+.fiche .aide{font-size:12px;color:var(--texte2);margin-top:10px;line-height:1.5}
+.fiche .tel{display:inline-block;margin-top:4px;font-family:'IBM Plex Mono',monospace}
+.fiche .whatsapp{display:block;text-align:center;border:1px solid var(--positif);color:var(--positif);padding:12px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;margin-top:14px}
+.fiche .whatsapp:hover{background:rgba(74,122,86,.08)}
+.fiche .dossier{border-top:1px solid var(--filet);margin-top:22px;padding-top:18px}
+.fiche .dossier h3{font-size:13px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.fiche .action.secondaire{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.fiche .alerte{background:rgba(160,69,63,.08);color:var(--negatif);font-size:12.5px;padding:8px 12px;margin:10px 0 0}
+.fiche .pieces{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fiche .pieces figure{margin:0}
+.fiche .pieces img{width:100%;height:110px;object-fit:cover;border:1px solid var(--filet);cursor:zoom-in;display:block}
+.fiche .pieces figcaption{font-size:11px;color:var(--texte2);margin-top:4px}
 #bloc-contrat{border-top:1px solid var(--filet);margin-top:18px;padding-top:16px}
-#fiche .form-contrat{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-#fiche .form-contrat label{display:flex;flex-direction:column;gap:4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2)}
-#fiche .form-contrat input,#fiche .form-contrat select{border:1px solid var(--filet);padding:9px 10px;font-size:13.5px;font-family:inherit;background:var(--fond);color:var(--encre);text-transform:none;letter-spacing:0}
-#fiche .form-contrat .large{grid-column:1/-1}
+.fiche .formulaire{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.fiche .formulaire label{display:flex;flex-direction:column;gap:4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2)}
+.fiche .formulaire input,.fiche .formulaire select{border:1px solid var(--filet);padding:9px 10px;font-size:13.5px;font-family:inherit;background:var(--fond);color:var(--encre);text-transform:none;letter-spacing:0}
+.fiche .formulaire .large{grid-column:1/-1}
 #etat-contrat{font-size:12.5px;margin:0}
 #etat-contrat.erreur{color:var(--negatif)}
 #etat-dossier{font-size:12.5px;margin-top:10px}
@@ -125,6 +130,86 @@ main h1{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
 #etat-action{font-size:12.5px;margin-top:10px;min-height:1.2em}
 #etat-action.erreur{color:var(--negatif)}
 #etat-action.ok{color:var(--positif)}
+
+/* ---- éléments communs aux écrans flotte, maintenance, clients, facturation */
+.bouton{display:inline-block;background:var(--accent);color:#fff;border:0;padding:11px 16px;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;text-decoration:none;text-align:center}
+.bouton.secondaire{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.bouton.bloc{display:block;margin-top:10px}
+.fiche .bloc{border-top:1px solid var(--filet);margin-top:18px;padding-top:14px}
+.fiche h3,.sous-titre{font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;margin:18px 0 8px;display:flex;align-items:center;gap:10px}
+.fiche .bloc h3{margin-top:0}
+.fiche select#choix-vehicule{width:100%;border:1px solid var(--filet);padding:10px;font-family:inherit;font-size:13.5px;background:var(--fond)}
+.fiche .formulaire textarea{border:1px solid var(--filet);padding:9px 10px;font-size:13.5px;font-family:inherit;background:var(--fond);color:var(--encre);text-transform:none;letter-spacing:0;resize:vertical}
+.fiche .formulaire .case{flex-direction:row;align-items:center;gap:8px;font-size:12.5px;letter-spacing:0;text-transform:none;color:var(--encre)}
+.fiche .formulaire .action{margin-top:4px}
+.fiche .formulaire input[readonly]{opacity:.7}
+.etat{font-size:12.5px;margin:6px 0 0;min-height:1em}
+.etat.erreur{color:var(--negatif)}
+.lien-danger{display:block;background:none;border:0;color:var(--negatif);font-size:12px;text-decoration:underline;margin:22px auto 0;padding:4px}
+.fiche .alerte.attention,.alerte.attention{background:rgba(176,121,58,.1);color:var(--attente)}
+.alerte{background:rgba(160,69,63,.08);color:var(--negatif);font-size:12.5px;padding:8px 12px;margin:8px 0 0}
+.immat{font-family:'IBM Plex Mono',monospace;letter-spacing:.04em}
+h2.immat{font-family:'IBM Plex Mono',monospace;font-size:18px}
+.txt-alerte{color:var(--negatif);font-weight:700}
+.mini-liste{list-style:none;margin:0;padding:0;font-size:13px}
+.mini-liste li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--filet-clair)}
+.mini-liste small{color:var(--texte2)}
+.modifier{margin-top:22px;border-top:1px solid var(--filet);padding-top:12px}
+.modifier summary{cursor:pointer;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.tableau{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+.tableau th{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2);text-align:left;padding:6px 4px;border-bottom:1px solid var(--filet)}
+.tableau td{padding:6px 4px;border-bottom:1px solid var(--filet-clair);vertical-align:top}
+.tableau td:nth-child(n+2){white-space:nowrap}
+.lignes-facture input{width:100%;border:1px solid var(--filet);padding:7px;font-family:inherit;font-size:13px;background:var(--fond)}
+.lignes-facture td:nth-child(2){width:64px}.lignes-facture td:nth-child(3){width:96px}.lignes-facture td:nth-child(4){width:28px}
+.lignes-facture .retirer{background:none;border:0;color:var(--negatif)}
+.total-facture{font-size:13px;margin:4px 0}
+.a-prevoir{background:var(--surface);border:1px solid var(--filet);padding:4px 18px 14px;margin-bottom:22px}
+.ligne-alerte{padding:8px 0;border-bottom:1px solid var(--filet-clair);font-size:13px}
+.ligne-alerte:last-child{border-bottom:0}
+.ligne-alerte .alerte{display:inline-block;margin:4px 6px 0 0;padding:4px 8px}
+.filtres input[type=search]{border:1px solid var(--filet);padding:9px 12px;font-family:inherit;font-size:13px;background:var(--surface);min-width:220px}
+.liste .ligne small{color:var(--texte2);font-size:12.5px}
+#bandeau-regles{background:rgba(176,121,58,.12);color:var(--attente);padding:12px 16px;font-size:13px;margin-bottom:20px}
+#impression{display:none}
+
+/* ---- facture imprimée */
+.facture-imprimee{font-family:'Plus Jakarta Sans',sans-serif;color:#2C211A;font-size:12px;padding:14mm}
+.fi-entete{display:flex;justify-content:space-between;gap:20px;border-bottom:2px solid #8A5236;padding-bottom:10px}
+.fi-entete p{margin:6px 0 0;color:#6F5B4B;font-size:11px}
+.fi-titre{text-align:right}
+.fi-titre h1{font-family:Cinzel,serif;font-weight:500;font-size:26px;letter-spacing:.1em;margin:0}
+.fi-annulee{color:#A0453F;font-weight:700;letter-spacing:.2em}
+.fi-client{margin:18px 0 18px auto;width:60%;border:1px solid #D9C8B4;padding:10px 14px;line-height:1.5}
+.fi-client span{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6F5B4B}
+.facture-imprimee table{width:100%;border-collapse:collapse}
+.facture-imprimee th{background:#F4ECE1;font-size:10px;letter-spacing:.08em;text-transform:uppercase;text-align:left;padding:7px 8px;border:1px solid #D9C8B4}
+.facture-imprimee td{padding:7px 8px;border:1px solid #D9C8B4}
+.facture-imprimee td:nth-child(n+2),.facture-imprimee th:nth-child(n+2){text-align:right;white-space:nowrap}
+.facture-imprimee .fi-totaux{width:50%;margin:12px 0 0 auto}
+.facture-imprimee .fi-totaux td:first-child{text-align:left}
+.fi-lettres{margin:18px 0}
+.fi-pied{margin-top:40px;border-top:1px solid #D9C8B4;padding-top:8px;font-size:10px;color:#6F5B4B;text-align:center}
+@media print{
+  @page{size:A4;margin:0}
+  html,body{background:#fff}
+  body>*:not(#impression){display:none!important}
+  #impression{display:block}
+}
+
+/* ---- téléphone */
+@media (max-width:800px){
+  #app.actif{grid-template-columns:minmax(0,1fr)}
+  aside,main{min-width:0}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .entete .bouton{padding:9px 12px}
+  aside{padding:14px 16px;gap:12px}
+  aside nav{flex-direction:row;overflow-x:auto;padding-top:10px}
+  aside nav a{white-space:nowrap;gap:6px}
+  aside .retour-site{display:none}
+  main{padding:20px 16px}
+  .fiche{position:static;max-height:none}
+}
 
 .vh{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 </style>
@@ -154,10 +239,11 @@ main h1{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
       <span>MALYSIA CAR PRO<small>BACK-OFFICE</small></span>
     </div>
     <nav>
-      <a class="actif" href="#">Réservations <span class="badge" id="nb-total">0</span></a>
-      <a href="#" data-desactive>Flotte <span class="badge">bientôt</span></a>
-      <a href="#" data-desactive>Clients <span class="badge">bientôt</span></a>
-      <a href="#" data-desactive>Facturation <span class="badge">bientôt</span></a>
+      <a class="actif" href="#reservations">Réservations <span class="badge" id="nb-total"></span></a>
+      <a href="#flotte">Flotte <span class="badge" id="nb-flotte"></span></a>
+      <a href="#maintenance">Maintenance <span class="badge" id="nb-maintenance"></span></a>
+      <a href="#clients">Clients <span class="badge"></span></a>
+      <a href="#facturation">Facturation <span class="badge" id="nb-factures"></span></a>
     </nav>
     <div class="qui">
       <span id="qui-connecte"></span>
@@ -167,6 +253,8 @@ main h1{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
   </aside>
 
   <main>
+    <p id="bandeau-regles" hidden>Les nouvelles règles de sécurité ne sont pas encore collées dans la console Firebase : la flotte, la maintenance, les clients et la facturation restent vides et ne peuvent rien enregistrer d'ici là.</p>
+    <section data-vue="reservations">
     <div class="entete">
       <h1>Réservations</h1>
       <span class="date" id="date-du-jour"></span>
@@ -174,8 +262,9 @@ main h1{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
 
     <div class="kpis">
       <div class="kpi"><div class="valeur" id="kpi-a-confirmer">—</div><div class="libelle">À confirmer</div></div>
-      <div class="kpi"><div class="valeur" id="kpi-confirmees">—</div><div class="libelle">Confirmées</div></div>
-      <div class="kpi"><div class="valeur" id="kpi-total">—</div><div class="libelle">Total (30 j)</div></div>
+      <div class="kpi"><div class="valeur" id="kpi-confirmees">—</div><div class="libelle">Confirmées à venir</div></div>
+      <div class="kpi"><div class="valeur" id="kpi-departs">—</div><div class="libelle">Départs aujourd'hui</div></div>
+      <div class="kpi"><div class="valeur" id="kpi-en-cours">—</div><div class="libelle">En cours</div></div>
     </div>
 
     <div class="filtres" id="filtres">
@@ -184,14 +273,24 @@ main h1{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
       <button data-statut="Confirmée">Confirmée</button>
       <button data-statut="Payée">Payée</button>
       <button data-statut="Prête à livrer">Prête à livrer</button>
+      <button data-statut="En cours">En cours</button>
+      <button data-statut="Terminée">Terminée</button>
+      <button data-statut="Annulée">Annulée</button>
     </div>
 
     <div class="disposition">
-      <div id="liste"><div class="vide">Chargement…</div></div>
-      <div id="fiche"><div class="vide">Sélectionnez une demande dans la liste.</div></div>
+      <div id="liste" class="liste"><div class="vide">Chargement…</div></div>
+      <div id="fiche" class="fiche"><div class="vide">Sélectionnez une demande dans la liste.</div></div>
     </div>
+    </section>
+    <section data-vue="flotte" hidden></section>
+    <section data-vue="maintenance" hidden></section>
+    <section data-vue="clients" hidden></section>
+    <section data-vue="facturation" hidden></section>
   </main>
 </div>
+
+<div id="impression"></div>
 
 <dialog id="visionneuse"><figure style="margin:0"><img alt=""><figcaption></figcaption></figure><form method="dialog" style="position:absolute;top:6px;right:8px"><button>Fermer ✕</button></form></dialog>
 

@@ -1,15 +1,21 @@
 import {
   connecter,
-  listerDocuments,
   creerDocument,
   corrigerDocument,
   lireDocument,
   estConfigure,
 } from "../assets/firestore-rest.js";
 import { SOCIETE, FRAIS, TARIFS, conditionsGenerales } from "../assets/contrat-modele.js";
+import {
+  etat, jeton, chargerTout, majDisponibilite, nomModele, STATUTS_ACTIFS, chevauche, alertesVehicule,
+  cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO,
+} from "./commun.js";
+import { afficherFlotte } from "./flotte.js";
+import { afficherMaintenance } from "./maintenance.js";
+import { afficherClients, ficheClient, nomClient, majClientDepuisDossier } from "./clients.js";
+import { afficherFacturation } from "./facturation.js";
 
 const CLE_SESSION = "malysia_bo_session";
-const ORDRE_STATUTS = ["À confirmer", "Confirmée", "Payée", "Prête à livrer"];
 const PIECES = [
   ["permis_recto", "Permis — recto"],
   ["permis_verso", "Permis — verso"],
@@ -27,8 +33,6 @@ const ficheEl = document.getElementById("fiche");
 const filtresEl = document.getElementById("filtres");
 const visionneuse = document.getElementById("visionneuse");
 
-let session = null; // { idToken, email }
-let reservations = [];
 let filtreActuel = "";
 let selectionId = null;
 
@@ -45,19 +49,31 @@ function chargerSession() {
   } catch { return null; }
 }
 function sauverSession(s) {
-  session = s;
+  etat.session = s;
   try { sessionStorage.setItem(CLE_SESSION, JSON.stringify(s)); } catch {}
 }
 function effacerSession() {
-  session = null;
+  etat.session = null;
   try { sessionStorage.removeItem(CLE_SESSION); } catch {}
 }
 
-function afficherApp() {
+async function afficherApp() {
   ecranConnexion.style.display = "none";
   app.classList.add("actif");
-  quiConnecte.textContent = session.email;
-  chargerReservations();
+  quiConnecte.textContent = etat.session.email;
+  listeEl.innerHTML = '<div class="vide">Chargement…</div>';
+  try {
+    const refusees = await chargerTout();
+    document.getElementById("bandeau-regles").hidden = refusees.length === 0;
+  } catch (e) {
+    if (e.status === 401 || e.status === 403) {
+      afficherConnexion("Session expirée, reconnectez-vous.");
+      return;
+    }
+    listeEl.innerHTML = '<div class="vide">Le chargement a échoué. Rechargez la page.</div>';
+    return;
+  }
+  router();
 }
 function afficherConnexion(message) {
   effacerSession();
@@ -89,22 +105,45 @@ formConnexion.addEventListener("submit", async (ev) => {
   }
 });
 
-// ---- chargement des réservations
+// ---- navigation entre les écrans (#reservations, #flotte/<id>, #facturation/nouvelle/<réservation>…)
 
-async function chargerReservations() {
-  listeEl.innerHTML = '<div class="vide">Chargement…</div>';
-  try {
-    reservations = await listerDocuments("reservations", { idToken: session.idToken, max: 200 });
-    reservations.sort((a, b) => String(b.creeLe || "").localeCompare(String(a.creeLe || "")));
-    render();
-  } catch (e) {
-    if (String(e.message).includes("401") || String(e.message).includes("403")) {
-      afficherConnexion("Session expirée, reconnectez-vous.");
-      return;
-    }
-    listeEl.innerHTML = '<div class="vide">Le chargement a échoué. Rechargez la page.</div>';
-  }
+const ECRANS = {
+  reservations: (el, param) => { if (param) selectionId = param; render(); },
+  flotte: afficherFlotte,
+  maintenance: afficherMaintenance,
+  clients: afficherClients,
+  facturation: afficherFacturation,
+};
+
+function router() {
+  if (!etat.session) return;
+  const [nom, param, param2] = location.hash.replace(/^#/, "").split("/").map(decodeURIComponent);
+  const ecran = ECRANS[nom] ? nom : "reservations";
+  document.querySelectorAll("[data-vue]").forEach((s) => { s.hidden = s.dataset.vue !== ecran; });
+  document.querySelectorAll("aside nav a").forEach((a) => a.classList.toggle("actif", a.getAttribute("href") === "#" + ecran));
+  ECRANS[ecran](document.querySelector(`[data-vue="${ecran}"]`), param, param2);
+  majBadges();
+  window.scrollTo(0, 0);
 }
+window.addEventListener("hashchange", router);
+
+// Sur téléphone, la fiche s'affiche sous la liste : on y descend après un choix.
+document.addEventListener("click", (ev) => {
+  if (window.innerWidth > 1000 || !ev.target.closest(".liste .ligne, .entete .bouton")) return;
+  const fiche = document.querySelector("[data-vue]:not([hidden]) .fiche");
+  if (fiche) setTimeout(() => fiche.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+});
+
+function majBadges() {
+  const d = etat.donnees;
+  const poser = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n || ""; };
+  poser("nb-total", d.reservations.filter((r) => r.statut === "À confirmer").length);
+  poser("nb-flotte", d.vehicules.filter((v) => alertesVehicule(v).length).length);
+  poser("nb-maintenance", d.maintenance.filter((m) => m.statut !== "Terminée").length);
+  poser("nb-factures", d.factures.filter((f) => f.statut === "À encaisser" || f.statut === "Partiellement payée").length);
+}
+
+// ---- réservations
 
 filtresEl.addEventListener("click", (ev) => {
   const b = ev.target.closest("button[data-statut]");
@@ -119,18 +158,22 @@ function render() {
   renderKpis();
   renderListe();
   renderFiche();
+  majBadges();
 }
 
 function renderKpis() {
-  const aConfirmer = reservations.filter((r) => r.statut === "À confirmer").length;
-  const confirmees = reservations.filter((r) => r.statut === "Confirmée").length;
-  document.getElementById("kpi-a-confirmer").textContent = aConfirmer;
-  document.getElementById("kpi-confirmees").textContent = confirmees;
-  document.getElementById("kpi-total").textContent = reservations.length;
-  document.getElementById("nb-total").textContent = reservations.length;
+  const reservations = etat.donnees.reservations;
+  const compte = (s) => reservations.filter((r) => r.statut === s).length;
+  const aujourdhui = maintenantISO().slice(0, 10);
+  document.getElementById("kpi-a-confirmer").textContent = compte("À confirmer");
+  document.getElementById("kpi-confirmees").textContent = compte("Confirmée") + compte("Payée") + compte("Prête à livrer");
+  document.getElementById("kpi-en-cours").textContent = compte("En cours");
+  document.getElementById("kpi-departs").textContent = reservations.filter((r) =>
+    ["Confirmée", "Payée", "Prête à livrer"].includes(r.statut) && String(r.depart || "").slice(0, 10) === aujourdhui).length;
 }
 
 function renderListe() {
+  const reservations = etat.donnees.reservations;
   const visibles = filtreActuel ? reservations.filter((r) => r.statut === filtreActuel) : reservations;
   if (visibles.length === 0) {
     listeEl.innerHTML = '<div class="vide">Aucune demande pour ce filtre.</div>';
@@ -138,15 +181,16 @@ function renderListe() {
   }
   listeEl.innerHTML = "";
   for (const r of visibles) {
+    const client = nomClient(ficheClient(r.telephone));
     const div = document.createElement("div");
     div.className = "ligne" + (r.id === selectionId ? " selectionnee" : "");
     div.innerHTML = `
       <div>
-        <div class="ref">${r.id.slice(0, 8).toUpperCase()} · ${r.formule || "—"}</div>
-        <div class="vehicule">${escHTML(r.vehiculeNom || "Véhicule non précisé")}</div>
+        <div class="ref">${r.id.slice(0, 8).toUpperCase()} · ${escHTML(r.formule || "—")}${r.immatriculation ? ` · <span class="immat">${escHTML(r.immatriculation)}</span>` : ""}</div>
+        <div class="vehicule">${escHTML(r.vehiculeNom || "Véhicule non précisé")}${client ? ` <small>· ${escHTML(client)}</small>` : ""}</div>
         <div class="dates">${formateDate(r.depart)} → ${formateDate(r.retour)}</div>
       </div>
-      <span class="statut" data-s="${r.statut}">${r.statut}</span>
+      ${badge(r.statut)}
     `;
     div.addEventListener("click", () => { selectionId = r.id; render(); });
     listeEl.appendChild(div);
@@ -154,37 +198,213 @@ function renderListe() {
 }
 
 function renderFiche() {
-  const r = reservations.find((x) => x.id === selectionId);
+  const r = etat.donnees.reservations.find((x) => x.id === selectionId);
   if (!r) {
     ficheEl.innerHTML = '<div class="vide">Sélectionnez une demande dans la liste.</div>';
     return;
   }
   const { libelle, aide, prochain } = actionPour(r.statut);
+  const client = ficheClient(r.telephone);
+  const cle = cleClient(r.telephone);
+  const avantRemise = ["Confirmée", "Payée", "Prête à livrer"].includes(r.statut);
+  const annulable = ["À confirmer", ...STATUTS_ACTIFS].includes(r.statut) && r.statut !== "En cours";
   ficheEl.innerHTML = `
-    <span class="statut" data-s="${r.statut}">${r.statut}</span>
+    ${badge(r.statut)}
+    ${client && client.listeNoire ? `<p class="alerte">Client en liste noire${client.motifListeNoire ? " : " + escHTML(client.motifListeNoire) : ""}</p>` : ""}
     <h2>${escHTML(r.vehiculeNom || "Véhicule non précisé")}</h2>
     <div class="ref">${r.id}</div>
     <div class="champs">
-      <div><span>Formule</span>${escHTML(r.formule || "—")}</div>
+      <div><span>Client</span>${cle ? `<a href="#clients/${escAttr(cle)}">${escHTML(nomClient(client) || "Voir la fiche")}</a>` : "—"}</div>
       <div><span>Téléphone</span><a class="tel" href="tel:${escAttr(r.telephone)}">${escHTML(r.telephone || "—")}</a></div>
+      <div><span>Formule</span>${escHTML(r.formule || "—")}</div>
       <div><span>Prise en charge</span>${escHTML(r.lieuPriseEnCharge || "—")}</div>
-      <div><span>Restitution</span>${escHTML(r.lieuRestitution || "—")}</div>
       <div><span>Départ</span>${formateDate(r.depart)}</div>
       <div><span>Retour</span>${formateDate(r.retour)}</div>
+      <div><span>Restitution</span>${escHTML(r.lieuRestitution || "—")}</div>
+      ${r.kmDepart !== undefined && r.kmDepart !== "" ? `<div><span>Km départ / retour</span>${nombre(r.kmDepart)}${r.kmRetour !== undefined && r.kmRetour !== "" ? " → " + nombre(r.kmRetour) + ` (${nombre(r.kmRetour - r.kmDepart)} km)` : ""}</div>` : ""}
     </div>
+    ${STATUTS_ACTIFS.includes(r.statut) ? '<div class="bloc" id="bloc-attribution"></div>' : ""}
     ${prochain
       ? `<button class="action" id="bouton-action">${libelle}</button><p class="aide">${aide}</p>`
       : `<p class="aide">${aide}</p>`}
     <p id="etat-action"></p>
-    ${r.statut !== "À confirmer" && r.telephone
+    ${avantRemise ? '<div class="bloc" id="bloc-remise"></div>' : ""}
+    ${r.statut === "En cours" ? '<div class="bloc" id="bloc-retour"></div>' : ""}
+    ${r.statut !== "À confirmer" && r.statut !== "Annulée" && r.telephone
       ? `<a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(r.telephone, messageConfirmation(r)))}">Prévenir le client par WhatsApp</a>`
       : ""}
-    ${r.statut !== "À confirmer" ? '<div class="dossier" id="bloc-dossier"></div>' : ""}
+    ${r.statut !== "À confirmer" && r.statut !== "Annulée" ? `<div class="bloc"><h3>Facture</h3>${r.facture
+      ? `<a class="bouton secondaire bloc" href="#facturation/${escAttr(r.facture)}">Voir la facture ${escHTML(r.facture)}</a>`
+      : `<a class="bouton secondaire bloc" href="#facturation/nouvelle/${escAttr(r.id)}">Créer la facture</a>`}</div>` : ""}
+    ${r.statut !== "À confirmer" && r.statut !== "Annulée" ? '<div class="dossier" id="bloc-dossier"></div>' : ""}
+    ${annulable ? '<button class="lien-danger" id="annuler-reservation">Annuler la réservation</button>' : ""}
   `;
   if (prochain) {
     document.getElementById("bouton-action").addEventListener("click", () => appliquerAction(r, prochain));
   }
-  if (r.statut !== "À confirmer") renderDossier(r);
+  if (STATUTS_ACTIFS.includes(r.statut)) renderAttribution(r);
+  if (avantRemise) renderRemise(r);
+  if (r.statut === "En cours") renderRetour(r);
+  if (annulable) document.getElementById("annuler-reservation").addEventListener("click", () => annuler(r));
+  if (r.statut !== "À confirmer" && r.statut !== "Annulée") renderDossier(r);
+}
+
+// ---- attribution d'un véhicule précis (immatriculation) à la réservation
+
+function conflits(r, v) {
+  const motifs = [];
+  if (v.statut === "Hors service") motifs.push("hors service");
+  if (v.statut === "En réparation" && (!v.disponibleLe || v.disponibleLe + "T23:59" > String(r.depart))) {
+    motifs.push(v.disponibleLe ? `en réparation jusqu'au ${formateDate(v.disponibleLe)}` : "en réparation");
+  }
+  const autre = etat.donnees.reservations.find((x) => x.id !== r.id && x.vehiculeAttribue === v.id && STATUTS_ACTIFS.includes(x.statut) && chevauche(x, r));
+  if (autre) motifs.push(`déjà loué du ${formateDate(autre.depart)} au ${formateDate(autre.retour)}`);
+  return motifs;
+}
+
+function renderAttribution(r) {
+  const bloc = document.getElementById("bloc-attribution");
+  const vehicules = etat.donnees.vehicules;
+  const actuel = vehicules.find((v) => v.id === r.vehiculeAttribue);
+  if (r.statut === "En cours") {
+    bloc.innerHTML = `<h3>Véhicule</h3><p><a class="immat" href="#flotte/${escAttr(r.vehiculeAttribue)}">${escHTML(r.immatriculation || "—")}</a> chez le client depuis le ${formateDate(r.remiseLe)}</p>`;
+    return;
+  }
+  const option = (v) => {
+    const motifs = conflits(r, v);
+    return `<option value="${escAttr(v.id)}"${v.id === r.vehiculeAttribue ? " selected" : ""}>${escHTML(v.immatriculation)}${v.modele !== r.vehicule ? " · " + escHTML(nomModele(v.modele)) : ""}${motifs.length ? " ⚠ " + escHTML(motifs.join(", ")) : ""}</option>`;
+  };
+  const memeModele = vehicules.filter((v) => v.modele === r.vehicule);
+  const autres = vehicules.filter((v) => v.modele !== r.vehicule);
+  const motifsActuel = actuel ? conflits(r, actuel) : [];
+  bloc.innerHTML = `<h3>Véhicule attribué</h3>
+    ${vehicules.length ? `<select id="choix-vehicule">
+      <option value="">Non attribué</option>
+      ${memeModele.length ? `<optgroup label="${escAttr(nomModele(r.vehicule))}">${memeModele.map(option).join("")}</optgroup>` : ""}
+      ${autres.length ? `<optgroup label="Autres modèles (surclassement)">${autres.map(option).join("")}</optgroup>` : ""}
+    </select>
+    ${motifsActuel.length ? `<p class="alerte">Attention : ce véhicule est ${escHTML(motifsActuel.join(", "))}.</p>` : ""}
+    <p class="aide">L'immatriculation choisie est reprise dans le contrat. Le client, lui, ne voit que le modèle.</p>`
+    : '<p class="aide">Aucun véhicule dans la flotte. <a href="#flotte">Ajoutez vos véhicules</a> avec leur immatriculation pour pouvoir les attribuer.</p>'}
+    <p class="etat" id="etat-attribution"></p>`;
+  const select = document.getElementById("choix-vehicule");
+  if (!select) return;
+  select.addEventListener("change", async () => {
+    const v = vehicules.find((x) => x.id === select.value);
+    const etatEl = document.getElementById("etat-attribution");
+    if (v && conflits(r, v).length && !confirm(`${v.immatriculation} est ${conflits(r, v).join(", ")}. L'attribuer quand même ?`)) {
+      select.value = r.vehiculeAttribue || "";
+      return;
+    }
+    select.disabled = true;
+    etatEl.textContent = "Enregistrement…";
+    try {
+      const maj = { vehiculeAttribue: v ? v.id : "", immatriculation: v ? v.immatriculation : "" };
+      await corrigerDocument("reservations", r.id, maj, jeton());
+      Object.assign(r, maj);
+      render();
+    } catch (e) {
+      select.disabled = false;
+      etatEl.className = "etat erreur";
+      etatEl.textContent = "Échec : " + e.message;
+    }
+  });
+}
+
+// ---- remise des clés et retour du véhicule
+
+function renderRemise(r) {
+  const bloc = document.getElementById("bloc-remise");
+  const v = etat.donnees.vehicules.find((x) => x.id === r.vehiculeAttribue);
+  if (!v) {
+    bloc.innerHTML = '<h3>Remise du véhicule</h3><p class="aide">Attribuez d\'abord un véhicule (immatriculation) pour pouvoir le remettre au client.</p>';
+    return;
+  }
+  bloc.innerHTML = `<h3>Remise du véhicule</h3>
+    <form class="formulaire" id="form-remise">
+      <label>Kilométrage au départ<input name="km" type="number" min="0" required value="${escAttr(r.kmDepart ?? v.kmActuel ?? "")}"></label>
+      <button class="action" type="submit">Remettre ${escHTML(v.immatriculation)} au client</button>
+      <p class="aide large">La location passe « En cours » et le véhicule « En circulation ».</p>
+      <p class="etat large" id="etat-remise"></p>
+    </form>`;
+  document.getElementById("form-remise").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const km = Number(ev.target.elements.km.value);
+    await ecrire("etat-remise", async () => {
+      const maj = { statut: "En cours", kmDepart: km, remiseLe: new Date() };
+      await corrigerDocument("reservations", r.id, maj, jeton());
+      Object.assign(r, maj, { remiseLe: maj.remiseLe.toISOString() });
+      await corrigerDocument("vehicules", v.id, { statut: "En circulation", kmActuel: km, disponibleLe: "" }, jeton());
+      Object.assign(v, { statut: "En circulation", kmActuel: km, disponibleLe: "" });
+      if (r.contrat) {
+        // le contrat reprend le kilométrage réel s'il n'avait pas été saisi
+        const contrat = await lireDocument("contrats", r.contrat, jeton()).catch(() => null);
+        if (contrat && (contrat.kmDepart === "" || contrat.kmDepart == null)) await corrigerDocument("contrats", r.contrat, { kmDepart: km }, jeton());
+      }
+    });
+  });
+}
+
+function renderRetour(r) {
+  const bloc = document.getElementById("bloc-retour");
+  const v = etat.donnees.vehicules.find((x) => x.id === r.vehiculeAttribue);
+  const jours = joursLocation(r);
+  const tarif = TARIFS[r.vehicule] || {};
+  bloc.innerHTML = `<h3>Retour du véhicule</h3>
+    <form class="formulaire" id="form-retour">
+      <label>Kilométrage au retour<input name="km" type="number" min="${escAttr(r.kmDepart || 0)}" required></label>
+      <button class="action" type="submit">Enregistrer le retour</button>
+      <p class="aide large" id="calcul-km">Inclus : ${nombre(FRAIS.kmInclusParJour * jours)} km (${jours} j × ${FRAIS.kmInclusParJour} km).</p>
+      <p class="etat large" id="etat-retour"></p>
+    </form>`;
+  const form = document.getElementById("form-retour");
+  form.elements.km.addEventListener("input", () => {
+    const parcourus = Number(form.elements.km.value) - Number(r.kmDepart || 0);
+    const exces = parcourus - FRAIS.kmInclusParJour * jours;
+    document.getElementById("calcul-km").textContent = `${nombre(parcourus)} km parcourus, ${nombre(FRAIS.kmInclusParJour * jours)} inclus.` +
+      (exces > 0 ? ` Supplément : ${nombre(exces)} km × ${tarif.kmSup || 3} MAD = ${nombre(exces * (tarif.kmSup || 3))} MAD (repris dans la facture).` : " Pas de supplément.");
+  });
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const km = Number(form.elements.km.value);
+    await ecrire("etat-retour", async () => {
+      const maj = { statut: "Terminée", kmRetour: km, retourLe: new Date() };
+      await corrigerDocument("reservations", r.id, maj, jeton());
+      Object.assign(r, maj, { retourLe: maj.retourLe.toISOString() });
+      if (v) {
+        const majV = { kmActuel: Math.max(km, Number(v.kmActuel) || 0) };
+        if (v.statut === "En circulation") majV.statut = "Disponible";
+        await corrigerDocument("vehicules", v.id, majV, jeton());
+        Object.assign(v, majV);
+      }
+      await majDisponibilite(r.vehicule); // un retour anticipé libère le modèle sur le site
+    });
+  });
+}
+
+async function annuler(r) {
+  if (!confirm("Annuler cette réservation ? Les dates seront libérées sur le site.")) return;
+  await ecrire("etat-action", async () => {
+    const maj = { statut: "Annulée", annuleeLe: new Date() };
+    await corrigerDocument("reservations", r.id, maj, jeton());
+    r.statut = "Annulée";
+    await majDisponibilite(r.vehicule);
+  });
+}
+
+async function ecrire(idEtat, action) {
+  const etatEl = document.getElementById(idEtat);
+  ficheEl.querySelectorAll("button, select").forEach((b) => { b.disabled = true; });
+  etatEl.className = "etat";
+  etatEl.textContent = "Enregistrement…";
+  try {
+    await action();
+    render();
+  } catch (e) {
+    ficheEl.querySelectorAll("button, select").forEach((b) => { b.disabled = false; });
+    etatEl.className = "etat erreur";
+    etatEl.textContent = "Échec : " + e.message;
+  }
 }
 
 // ---- dossier client : lien envoyé par WhatsApp, formulaire rempli par le client (dossier.html)
@@ -219,17 +439,17 @@ async function renderDossier(r) {
   bloc.innerHTML = '<h3>Dossier client</h3><p class="aide">Chargement…</p>';
   let dossier, fiche, pieces;
   try {
-    dossier = await lireDocument("dossiers", r.dossier, { idToken: session.idToken });
+    dossier = await lireDocument("dossiers", r.dossier, jeton());
     if (dossier && dossier.statut === "Reçu") {
-      fiche = await lireDocument(`dossiers/${r.dossier}/prive`, "fiche", { idToken: session.idToken });
+      fiche = await lireDocument(`dossiers/${r.dossier}/prive`, "fiche", jeton());
       pieces = await Promise.all(PIECES.map(([nom]) =>
-        lireDocument(`dossiers/${r.dossier}/pieces`, nom, { idToken: session.idToken })));
+        lireDocument(`dossiers/${r.dossier}/pieces`, nom, jeton())));
     }
   } catch {
     if (selectionId === r.id) bloc.innerHTML = '<h3>Dossier client</h3><p class="aide">Le dossier n\'a pas pu être chargé. Rechargez la page.</p>';
     return;
   }
-  if (selectionId !== r.id) return; // une autre fiche a été ouverte entre-temps
+  if (selectionId !== r.id || !document.getElementById("bloc-dossier")) return; // une autre fiche a été ouverte entre-temps
   const renvoyer = `<a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(r.telephone, messageDossier(r, r.dossier)))}">Renvoyer le lien par WhatsApp</a>`;
   if (!dossier || dossier.statut !== "Reçu" || !fiche) {
     bloc.innerHTML = `<h3>Dossier client</h3>
@@ -237,7 +457,7 @@ async function renderDossier(r) {
     return;
   }
   const alertes = alertesDossier(fiche, r);
-  bloc.innerHTML = `<h3>Dossier client <span class="statut" data-s="Confirmée">Reçu</span></h3>
+  bloc.innerHTML = `<h3>Dossier client ${badge("Reçu")}</h3>
     ${alertes.map((a) => `<p class="alerte">${escHTML(a)}</p>`).join("")}
     <div class="champs">
       <div><span>Nom</span>${escHTML(fiche.nom)} ${escHTML(fiche.prenom)}</div>
@@ -284,22 +504,23 @@ async function renderContrat(r, fiche) {
   const bloc = document.getElementById("bloc-contrat");
   let existant = null;
   if (r.contrat) {
-    try { existant = await lireDocument("contrats", r.contrat, { idToken: session.idToken }); } catch {}
-    if (selectionId !== r.id) return;
+    try { existant = await lireDocument("contrats", r.contrat, jeton()); } catch {}
+    if (selectionId !== r.id || !document.getElementById("bloc-contrat")) return;
   }
   const tarif = TARIFS[r.vehicule] || {};
   const jours = joursLocation(r);
+  const attribue = etat.donnees.vehicules.find((x) => x.id === r.vehiculeAttribue);
   const v = existant ? existant.vehicule || {} : {};
   const loc = existant ? existant.location || {} : {};
-  const val = (x, defaut) => escAttr(x ?? defaut ?? "");
+  const val = (x, defaut) => escAttr(x !== undefined && x !== null && x !== "" ? x : defaut ?? "");
   const paiement = loc.paiement || "Carte bancaire (CMI)";
-  bloc.innerHTML = `<h3>Contrat ${existant ? '<span class="statut" data-s="Confirmée">Généré</span>' : ""}</h3>
+  bloc.innerHTML = `<h3>Contrat ${existant ? badge("Généré") : ""}</h3>
     ${existant ? `<a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienContrat(r.contrat))}">Voir le contrat</a>
       <a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(r.telephone, messageContrat(r, existant, r.contrat)))}">Envoyer le contrat par WhatsApp</a>` : ""}
-    <form id="form-contrat" class="form-contrat">
-      <label>Immatriculation<input name="immatriculation" required value="${val(v.immatriculation)}"></label>
-      <label>Carburant<input name="carburant" value="${val(v.carburant, tarif.carburant)}"></label>
-      <label>Kilométrage au départ<input name="kmDepart" type="number" min="0" value="${val(existant && existant.kmDepart)}" placeholder="à la remise"></label>
+    <form id="form-contrat" class="form-contrat formulaire">
+      <label>Immatriculation<input name="immatriculation" required value="${val(r.immatriculation || v.immatriculation)}"></label>
+      <label>Carburant<input name="carburant" value="${val(v.carburant, (attribue && attribue.carburant) || tarif.carburant)}"></label>
+      <label>Kilométrage au départ<input name="kmDepart" type="number" min="0" value="${val(existant && existant.kmDepart, r.kmDepart ?? (attribue && attribue.kmActuel))}" placeholder="à la remise"></label>
       <label>Prix total TTC (MAD)<input name="prixTotal" type="number" min="0" required value="${val(loc.prixTotal, tarif.prixJour ? tarif.prixJour * jours : "")}"></label>
       <label>Caution (MAD)<input name="caution" type="number" min="0" required value="${val(loc.caution)}"></label>
       <label>Paiement<select name="paiement">${["Carte bancaire (CMI)", "Virement", "Espèces"].map((p) => `<option${p === paiement ? " selected" : ""}>${p}</option>`).join("")}</select></label>
@@ -316,12 +537,12 @@ async function renderContrat(r, fiche) {
 }
 
 async function enregistrerContrat(r, fiche, existant, form) {
-  const etat = document.getElementById("etat-contrat");
+  const etatEl = document.getElementById("etat-contrat");
   const bouton = form.querySelector("button");
   const f = form.elements;
   const tarif = TARIFS[r.vehicule] || {};
   const kmSup = tarif.kmSup || 3;
-  const nombre = (x) => (x.value === "" ? "" : Number(x.value));
+  const nombreSaisi = (x) => (x.value === "" ? "" : Number(x.value));
   const locataire = {};
   for (const k of ["nom", "prenom", "dateNaissance", "lieuNaissance", "nationalite", "adresse", "ville", "pays", "telephone", "email",
     "typePiece", "numeroPiece", "expirationPiece", "numeroPermis", "delivrancePermis", "paysPermis"]) locataire[k] = fiche[k] || "";
@@ -333,31 +554,33 @@ async function enregistrerContrat(r, fiche, existant, form) {
     vehicule: { nom: r.vehiculeNom || tarif.nom || "", categorie: tarif.categorie || "", immatriculation: f.immatriculation.value.trim(), carburant: f.carburant.value.trim() },
     location: {
       formule: r.formule || "", depart: r.depart || "", lieuDepart: r.lieuPriseEnCharge || "", retour: r.retour || "", lieuRetour: r.lieuRestitution || "",
-      jours: joursLocation(r), prixJour: tarif.prixJour || "", prixTotal: nombre(f.prixTotal), caution: nombre(f.caution),
+      jours: joursLocation(r), prixJour: tarif.prixJour || "", prixTotal: nombreSaisi(f.prixTotal), caution: nombreSaisi(f.caution),
       paiement: f.paiement.value, options: f.options.value.trim(), kmInclus: FRAIS.kmInclusParJour, kmSup,
     },
     agent: f.agent.value.trim(),
-    kmDepart: nombre(f.kmDepart),
+    kmDepart: nombreSaisi(f.kmDepart),
     conditions: conditionsGenerales(kmSup).map(([titre, texte]) => ({ titre, texte })),
     modifieLe: new Date(),
   };
   bouton.disabled = true;
-  etat.className = "large";
-  etat.textContent = "Enregistrement…";
+  etatEl.className = "large";
+  etatEl.textContent = "Enregistrement…";
   try {
     if (existant) {
-      await corrigerDocument("contrats", r.contrat, contrat, { idToken: session.idToken });
+      await corrigerDocument("contrats", r.contrat, contrat, jeton());
     } else {
-      const jeton = nouveauJeton();
-      await creerDocument("contrats", { ...contrat, creeLe: new Date() }, { idToken: session.idToken, id: jeton });
-      await corrigerDocument("reservations", r.id, { contrat: jeton }, { idToken: session.idToken });
-      r.contrat = jeton;
+      const nouveau = nouveauJeton();
+      await creerDocument("contrats", { ...contrat, creeLe: new Date() }, { ...jeton(), id: nouveau });
+      await corrigerDocument("reservations", r.id, { contrat: nouveau }, jeton());
+      r.contrat = nouveau;
     }
+    // la fiche client se complète avec le dossier (sans bloquer le contrat si elle échoue)
+    await majClientDepuisDossier(r.telephone, fiche).catch(() => {});
     renderContrat(r, fiche);
   } catch (e) {
     bouton.disabled = false;
-    etat.className = "large erreur";
-    etat.textContent = "Échec : " + e.message;
+    etatEl.className = "large erreur";
+    etatEl.textContent = "Échec : " + e.message;
   }
 }
 
@@ -380,13 +603,13 @@ function alertesDossier(fiche, r) {
 
 async function demanderDossier(r) {
   const bouton = document.getElementById("demander-dossier");
-  const etat = document.getElementById("etat-dossier");
+  const etatEl = document.getElementById("etat-dossier");
   // ouverte tout de suite, pendant le clic, sinon le navigateur bloque la fenêtre WhatsApp
   const fenetre = window.open("", "_blank");
   bouton.disabled = true;
-  etat.textContent = "Préparation du lien…";
+  etatEl.textContent = "Préparation du lien…";
   try {
-    const jeton = nouveauJeton();
+    const nouveau = nouveauJeton();
     await creerDocument("dossiers", {
       reservationId: r.id,
       vehiculeNom: r.vehiculeNom || "",
@@ -395,28 +618,21 @@ async function demanderDossier(r) {
       telephone: r.telephone || "",
       statut: "En attente",
       creeLe: new Date(),
-    }, { idToken: session.idToken, id: jeton });
-    await corrigerDocument("reservations", r.id, { dossier: jeton }, { idToken: session.idToken });
-    r.dossier = jeton;
-    const lien = lienWhatsApp(r.telephone, messageDossier(r, jeton));
+    }, { ...jeton(), id: nouveau });
+    await corrigerDocument("reservations", r.id, { dossier: nouveau }, jeton());
+    r.dossier = nouveau;
+    const lien = lienWhatsApp(r.telephone, messageDossier(r, nouveau));
     if (fenetre) fenetre.location.href = lien; else window.open(lien, "_blank");
     render();
   } catch (e) {
     if (fenetre) fenetre.close();
     bouton.disabled = false;
-    etat.className = "erreur";
-    etat.textContent = "Échec : " + e.message;
+    etatEl.className = "erreur";
+    etatEl.textContent = "Échec : " + e.message;
   }
 }
 
 // ---- message client (WhatsApp) : le numéro suffit, pas besoin que le client ait un compte
-
-function telWhatsApp(tel) {
-  const chiffres = String(tel || "").replace(/[^\d+]/g, "");
-  if (chiffres.startsWith("+")) return chiffres.slice(1);
-  if (chiffres.startsWith("0")) return "212" + chiffres.slice(1);
-  return chiffres;
-}
 
 function messageConfirmation(r) {
   return `Bonjour, ici Malysia Car Pro. Votre réservation` +
@@ -425,69 +641,37 @@ function messageConfirmation(r) {
     ` est confirmée. À bientôt !`;
 }
 
-function lienWhatsApp(tel, message) {
-  return `https://wa.me/${telWhatsApp(tel)}?text=${encodeURIComponent(message)}`;
-}
-
 function actionPour(statut) {
   switch (statut) {
     case "À confirmer":
       return { libelle: "Confirmer la réservation", prochain: "Confirmée",
-        aide: "Bloque ces dates pour ce véhicule et passe la demande en confirmée. Pensez à rappeler le client." };
+        aide: "Bloque ces dates sur le site quand tous les véhicules du modèle sont pris, et passe la demande en confirmée. Pensez à rappeler le client." };
     case "Confirmée":
       return { libelle: "Marquer payée", prochain: "Payée",
         aide: "À utiliser une fois le paiement et la caution encaissés." };
     case "Payée":
       return { libelle: "Marquer prête à livrer", prochain: "Prête à livrer",
-        aide: "Affecte la réservation à la livraison. Le contrat se signe à la remise du véhicule." };
+        aide: "Le véhicule est préparé. Le contrat se signe à la remise du véhicule." };
+    case "Prête à livrer":
+      return { libelle: "", prochain: null, aide: "Remettez le véhicule au client ci-dessous le jour du départ." };
+    case "En cours":
+      return { libelle: "", prochain: null, aide: "Le véhicule est chez le client. Enregistrez son retour ci-dessous." };
+    case "Terminée":
+      return { libelle: "", prochain: null, aide: "Location terminée, véhicule restitué." };
+    case "Annulée":
+      return { libelle: "", prochain: null, aide: "Réservation annulée, dates libérées." };
     default:
-      return { libelle: "", prochain: null, aide: "Cette demande est arrivée au bout du parcours actuel." };
+      return { libelle: "", prochain: null, aide: "" };
   }
 }
 
 async function appliquerAction(r, prochainStatut) {
-  const bouton = document.getElementById("bouton-action");
-  const etat = document.getElementById("etat-action");
-  bouton.disabled = true;
-  etat.className = "";
-  etat.textContent = "Enregistrement…";
-  try {
-    if (prochainStatut === "Confirmée" && r.vehicule) {
-      await bloquerDates(r.vehicule, r.depart, r.retour);
-    }
-    await corrigerDocument("reservations", r.id, { statut: prochainStatut }, { idToken: session.idToken });
+  await ecrire("etat-action", async () => {
+    await corrigerDocument("reservations", r.id, { statut: prochainStatut }, jeton());
     r.statut = prochainStatut;
-    etat.className = "ok";
-    etat.textContent = "Fait.";
-    render();
-  } catch (e) {
-    etat.className = "erreur";
-    etat.textContent = "Échec : " + e.message;
-    bouton.disabled = false;
-  }
+    if (prochainStatut === "Confirmée") await majDisponibilite(r.vehicule);
+  });
 }
-
-async function bloquerDates(vehiculeId, debut, fin) {
-  if (!debut || !fin) return; // pas de dates saisies : rien à bloquer
-  const doc = await lireDocument("disponibilite", vehiculeId, { idToken: session.idToken });
-  const occupations = (doc && doc.occupations) || [];
-  occupations.push({ debut, fin });
-  await corrigerDocument("disponibilite", vehiculeId, { occupations }, { idToken: session.idToken });
-}
-
-// ---- utilitaires
-
-function formateDate(v) {
-  if (!v) return "—";
-  const [d, h] = String(v).split("T");
-  if (!d) return v;
-  const [an, mois, jour] = d.split("-");
-  return `${jour}/${mois}/${an}${h ? " " + h : ""}`;
-}
-function escHTML(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-function escAttr(s) { return escHTML(s); }
 
 // ---- démarrage
 
@@ -496,7 +680,7 @@ if (!estConfigure()) {
 } else {
   const s = chargerSession();
   if (s && s.expire > Date.now()) {
-    session = s;
+    etat.session = s;
     afficherApp();
   }
 }

@@ -106,15 +106,25 @@ export async function lireDocument(collection, id, { idToken } = {}) {
   return depuisDocument(await res.json());
 }
 
-/** Liste les documents d'une collection (jusqu'à `max`, non paginé au-delà). */
-export async function listerDocuments(collection, { idToken, max = 200 } = {}) {
-  const url = `${baseUrl()}/${collection}?pageSize=${max}`;
+/** Liste les documents d'une collection, page par page, jusqu'à `max` documents. */
+export async function listerDocuments(collection, { idToken, max = 2000 } = {}) {
   const headers = {};
   if (idToken) headers.Authorization = `Bearer ${idToken}`;
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`Firestore ${res.status} : ${await res.text()}`);
-  const data = await res.json();
-  return (data.documents || []).map(depuisDocument);
+  const documents = [];
+  let jetonPage = "";
+  do {
+    const url = `${baseUrl()}/${collection}?pageSize=300` + (jetonPage ? `&pageToken=${encodeURIComponent(jetonPage)}` : "");
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      const err = new Error(`Firestore ${res.status} : ${await res.text()}`);
+      err.status = res.status;
+      throw err;
+    }
+    const data = await res.json();
+    documents.push(...(data.documents || []).map(depuisDocument));
+    jetonPage = data.nextPageToken || "";
+  } while (jetonPage && documents.length < max);
+  return documents;
 }
 
 /** Met à jour uniquement les champs donnés (les autres restent intacts). */
@@ -130,6 +140,15 @@ export async function corrigerDocument(collection, id, donnees, { idToken } = {}
   });
   if (!res.ok) throw new Error(`Firestore ${res.status} : ${await res.text()}`);
   return depuisDocument(await res.json());
+}
+
+/** Supprime un document. */
+export async function supprimerDocument(collection, id, { idToken } = {}) {
+  const url = `${baseUrl()}/${collection}/${encodeURIComponent(id)}`;
+  const headers = {};
+  if (idToken) headers.Authorization = `Bearer ${idToken}`;
+  const res = await fetch(url, { method: "DELETE", headers });
+  if (!res.ok) throw new Error(`Firestore ${res.status} : ${await res.text()}`);
 }
 
 // ---- Authentification (compte e-mail / mot de passe du back-office)

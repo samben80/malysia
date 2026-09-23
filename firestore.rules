@@ -2,23 +2,32 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Comptes de l'équipe autorisés à ouvrir le back-office. Un compte
+    // Firebase créé par quelqu'un d'autre (l'inscription est possible avec la
+    // seule clé publique du site) n'a accès à rien. Pour ajouter un
+    // collaborateur : créer son compte, puis ajouter son e-mail ici.
+    function equipe() {
+      return request.auth != null
+        && request.auth.token.email in ["bs@bgp.ma"];
+    }
+
     // Demandes du site public : tout le monde peut en créer une, seule
     // l'équipe connectée peut les lire ou les modifier.
     match /reservations/{id} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read, update, delete: if equipe();
     }
 
     // Messages du formulaire de contact : même logique.
     match /messages/{id} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read, update, delete: if equipe();
     }
 
     // Disponibilité des véhicules : lecture publique, écriture par l'équipe.
     match /disponibilite/{vehiculeId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if equipe();
     }
 
     // Dossiers clients. L'équipe crée le dossier et envoie son lien par
@@ -32,15 +41,15 @@ service cloud.firestore {
       }
 
       allow get: if true;
-      allow list, create, delete: if request.auth != null;
-      allow update: if request.auth != null
+      allow list, create, delete: if equipe();
+      allow update: if equipe()
         || (resource.data.statut == "En attente"
             && request.resource.data.statut == "Reçu"
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "recuLe"]));
 
       match /prive/{doc} {
         allow create: if doc == "fiche" && enAttente();
-        allow read, update, delete: if request.auth != null;
+        allow read, update, delete: if equipe();
       }
 
       match /pieces/{nom} {
@@ -48,15 +57,34 @@ service cloud.firestore {
           && enAttente()
           && request.resource.data.image is string
           && request.resource.data.image.size() < 1000000;
-        allow read, update, delete: if request.auth != null;
+        allow read, update, delete: if equipe();
       }
+    }
+
+    // Gestion interne : flotte (véhicules et immatriculations), maintenance,
+    // fiches clients. Réservé à l'équipe.
+    match /vehicules/{id} {
+      allow read, write: if equipe();
+    }
+    match /maintenance/{id} {
+      allow read, write: if equipe();
+    }
+    match /clients/{id} {
+      allow read, write: if equipe();
+    }
+
+    // Factures : numérotation continue, une facture émise ne se supprime
+    // jamais (elle s'annule et garde son numéro).
+    match /factures/{numero} {
+      allow read, create, update: if equipe();
+      allow delete: if false;
     }
 
     // Contrats : établis par l'équipe, consultables par le client via le
     // lien (identifiant long et aléatoire) envoyé par WhatsApp. Jamais listables.
     match /contrats/{jeton} {
       allow get: if true;
-      allow list, create, update, delete: if request.auth != null;
+      allow list, create, update, delete: if equipe();
     }
   }
 }

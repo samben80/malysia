@@ -41,23 +41,32 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Comptes de l'équipe autorisés à ouvrir le back-office. Un compte
+    // Firebase créé par quelqu'un d'autre (l'inscription est possible avec la
+    // seule clé publique du site) n'a accès à rien. Pour ajouter un
+    // collaborateur : créer son compte, puis ajouter son e-mail ici.
+    function equipe() {
+      return request.auth != null
+        && request.auth.token.email in ["bs@bgp.ma"];
+    }
+
     // Demandes du site public : tout le monde peut en créer une, seule
     // l'équipe connectée peut les lire ou les modifier.
     match /reservations/{id} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read, update, delete: if equipe();
     }
 
     // Messages du formulaire de contact : même logique.
     match /messages/{id} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read, update, delete: if equipe();
     }
 
     // Disponibilité des véhicules : lecture publique, écriture par l'équipe.
     match /disponibilite/{vehiculeId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if equipe();
     }
 
     // Dossiers clients. L'équipe crée le dossier et envoie son lien par
@@ -71,15 +80,15 @@ service cloud.firestore {
       }
 
       allow get: if true;
-      allow list, create, delete: if request.auth != null;
-      allow update: if request.auth != null
+      allow list, create, delete: if equipe();
+      allow update: if equipe()
         || (resource.data.statut == "En attente"
             && request.resource.data.statut == "Reçu"
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["statut", "recuLe"]));
 
       match /prive/{doc} {
         allow create: if doc == "fiche" && enAttente();
-        allow read, update, delete: if request.auth != null;
+        allow read, update, delete: if equipe();
       }
 
       match /pieces/{nom} {
@@ -87,27 +96,47 @@ service cloud.firestore {
           && enAttente()
           && request.resource.data.image is string
           && request.resource.data.image.size() < 1000000;
-        allow read, update, delete: if request.auth != null;
+        allow read, update, delete: if equipe();
       }
+    }
+
+    // Gestion interne : flotte (véhicules et immatriculations), maintenance,
+    // fiches clients. Réservé à l'équipe.
+    match /vehicules/{id} {
+      allow read, write: if equipe();
+    }
+    match /maintenance/{id} {
+      allow read, write: if equipe();
+    }
+    match /clients/{id} {
+      allow read, write: if equipe();
+    }
+
+    // Factures : numérotation continue, une facture émise ne se supprime
+    // jamais (elle s'annule et garde son numéro).
+    match /factures/{numero} {
+      allow read, create, update: if equipe();
+      allow delete: if false;
     }
 
     // Contrats : établis par l'équipe, consultables par le client via le
     // lien (identifiant long et aléatoire) envoyé par WhatsApp. Jamais listables.
     match /contrats/{jeton} {
       allow get: if true;
-      allow list, create, update, delete: if request.auth != null;
+      allow list, create, update, delete: if equipe();
     }
   }
 }
 ```
 
-Ces règles ont été vérifiées sur l'émulateur Firestore local (28 cas : ce qu'un
-visiteur anonyme peut et ne peut pas faire, ce que l'équipe connectée peut faire).
+Ces règles ont été vérifiées sur l'émulateur Firestore local (51 cas : ce qu'un
+visiteur anonyme peut et ne peut pas faire, ce qu'un compte inconnu ne peut pas
+faire, ce que l'équipe peut faire).
 
-Ces règles sont volontairement simples : n'importe quel compte connecté a
-accès à tout le back-office. Suffisant pour une petite équipe. Le jour où il
-faudra distinguer les rôles (ex. un agent qui ne voit pas la facturation),
-on affinera ces règles à ce moment-là, pas avant.
+Seuls les comptes dont l'e-mail figure dans `equipe()` ont accès au
+back-office : n'importe qui peut créer un compte Firebase avec la clé publique
+du site, donc « être connecté » ne suffit pas. Pour ajouter un collaborateur,
+créer son compte puis ajouter son e-mail à la liste et republier les règles.
 
 ## Une fois ces 4 étapes faites
 
@@ -135,9 +164,26 @@ publier une dans ce dépôt s'il en apparaît une plus tard pour un usage futur.
 - Un indicateur de disponibilité (lecture de `disponibilite/{vehicule}`)
   s'affiche sous les dates dès qu'un véhicule est choisi — indicatif, jamais
   bloquant : la confirmation reste toujours humaine.
-- `backoffice/` : connexion, liste des demandes, fiche détaillée, action de
-  confirmation qui bloque les dates choisies pour ce véhicule, message
-  WhatsApp au client, demande du dossier client.
+- `backoffice/` : connexion, liste des demandes, fiche détaillée,
+  confirmation, message WhatsApp au client, demande du dossier client,
+  attribution d'un véhicule précis (immatriculation), remise et retour du
+  véhicule avec le kilométrage, annulation.
+- Flotte (`vehicules`) : chaque véhicule avec son immatriculation, son modèle
+  (celui affiché sur le site), son kilométrage, ses échéances (assurance,
+  visite technique, vignette) et son statut : Disponible, En circulation,
+  En réparation (avec date de retour prévue) ou Hors service.
+- Disponibilité sur le site (`disponibilite/{modèle}`) : recalculée à chaque
+  confirmation, annulation, retour ou changement de statut d'un véhicule. Un
+  modèle n'apparaît complet que lorsque tous ses véhicules sont pris.
+- Maintenance (`maintenance`) : vidanges, pneus, réparations, avec coût,
+  kilométrage et immobilisation. Alertes de vidange (tous les 10 000 km par
+  défaut), de pneus (40 000 km), d'échéances à 30 jours.
+- Clients (`clients/{téléphone}`) : fiche créée automatiquement depuis le
+  dossier à la génération du contrat, historique des locations et factures,
+  liste noire.
+- Facturation (`factures/F-AAAA-NNNN`) : numérotation continue, TVA 20 %,
+  paiements partiels, impression PDF. Une facture ne se supprime pas, elle
+  s'annule.
 - `dossier.html?d=…` : formulaire envoyé au client par WhatsApp (identité,
   adresse, permis, photos des documents). Données rangées dans
   `dossiers/{jeton}` (résumé), `dossiers/{jeton}/prive/fiche` (informations)
