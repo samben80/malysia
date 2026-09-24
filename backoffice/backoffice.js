@@ -8,7 +8,7 @@ import {
 import { SOCIETE, FRAIS, conditionsGenerales } from "../assets/contrat-modele.js";
 import {
   etat, jeton, chargerTout, majDisponibilite, nomModele, MODELES, STATUTS_ACTIFS, chevauche, alertesVehicule,
-  cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO,
+  cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO, messageErreur,
 } from "./commun.js";
 import { afficherFlotte } from "./flotte.js";
 import { afficherModeles } from "./modeles.js";
@@ -310,7 +310,7 @@ function renderAttribution(r) {
     } catch (e) {
       select.disabled = false;
       etatEl.className = "etat erreur";
-      etatEl.textContent = "Échec : " + e.message;
+      etatEl.textContent = messageErreur(e);
     }
   });
 }
@@ -407,7 +407,7 @@ async function ecrire(idEtat, action) {
   } catch (e) {
     ficheEl.querySelectorAll("button, select").forEach((b) => { b.disabled = false; });
     etatEl.className = "etat erreur";
-    etatEl.textContent = "Échec : " + e.message;
+    etatEl.textContent = messageErreur(e);
   }
 }
 
@@ -584,7 +584,7 @@ async function enregistrerContrat(r, fiche, existant, form) {
   } catch (e) {
     bouton.disabled = false;
     etatEl.className = "large erreur";
-    etatEl.textContent = "Échec : " + e.message;
+    etatEl.textContent = messageErreur(e);
   }
 }
 
@@ -632,7 +632,7 @@ async function demanderDossier(r) {
     if (fenetre) fenetre.close();
     bouton.disabled = false;
     etatEl.className = "erreur";
-    etatEl.textContent = "Échec : " + e.message;
+    etatEl.textContent = messageErreur(e);
   }
 }
 

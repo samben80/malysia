@@ -237,6 +237,16 @@ export function valeursFormulaire(form) {
 }
 
 // Exécute une écriture en affichant son état sous le formulaire, puis redessine l'écran.
+// Message d'erreur lisible : un 403 de Firestore veut presque toujours dire que
+// les règles du dépôt ne sont pas publiées, ou que le compte n'est pas dans equipe().
+export function messageErreur(e) {
+  const m = String((e && e.message) || e);
+  if (/\b403\b|PERMISSION_DENIED/.test(m)) {
+    return "Échec : Firebase refuse l'accès. Soit les règles de sécurité à jour (fichier firestore.rules) ne sont pas encore publiées dans la console Firebase (Firestore > Règles), soit ce compte ne fait pas partie de l'équipe autorisée.";
+  }
+  return "Échec : " + m;
+}
+
 export async function executer(etatEl, rendre, action) {
   const form = etatEl.closest("form") || etatEl.parentElement;
   const boutons = form.querySelectorAll("button");
@@ -249,7 +259,7 @@ export async function executer(etatEl, rendre, action) {
   } catch (e) {
     boutons.forEach((b) => { b.disabled = false; });
     etatEl.className = "etat large erreur";
-    etatEl.textContent = "Échec : " + e.message;
+    etatEl.textContent = messageErreur(e);
   }
 }
 

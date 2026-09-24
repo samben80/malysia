@@ -3,7 +3,7 @@
 import { creerDocument, corrigerDocument, supprimerDocument } from "../assets/firestore-rest.js";
 import {
   etat, jeton, nomModele, majDisponibilite, alertesVehicule, formateDate, nombre, mad, escHTML, escAttr,
-  champ, valeursFormulaire, badge, blocAlertes, aujourdhuiISO, executer,
+  champ, valeursFormulaire, badge, blocAlertes, aujourdhuiISO, executer, messageErreur,
 } from "./commun.js";
 
 export const TYPES_INTERVENTION = ["Vidange", "Pneus", "Freins", "Révision", "Réparation", "Carrosserie", "Batterie", "Autre"];
@@ -98,7 +98,7 @@ function rendreFiche() {
       etat.donnees.maintenance = etat.donnees.maintenance.filter((x) => x.id !== m.id);
       selection = null;
       rendre();
-    } catch (e) { alert("Échec : " + e.message); }
+    } catch (e) { alert(messageErreur(e)); }
   });
 }
 
