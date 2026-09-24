@@ -1,0 +1,43 @@
+# Met à jour la section « Notre flotte » du site à partir des modèles saisis
+# dans le back-office (onglet Flotte > Modèles). Tourne toutes les 15 minutes
+# et ne commite que s'il y a un changement.
+name: Catalogue du site
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: catalogue
+  cancel-in-progress: false
+
+jobs:
+  catalogue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Régénérer la flotte depuis Firestore
+        run: node outils/catalogue.mjs
+      - name: Publier si quelque chose a changé
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Catalogue inchangé."
+            exit 0
+          fi
+          git config user.name "Malysia Car Pro (catalogue)"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Met à jour la flotte du site depuis le back-office"
+          git push
+          # un push fait par ce jeton ne relance pas GitHub Pages tout seul
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" || true

@@ -5,14 +5,16 @@ import { TARIFS } from "../assets/contrat-modele.js";
 // Session de l'équipe et données chargées à la connexion (tableaux de documents).
 export const etat = {
   session: null,
-  donnees: { reservations: [], vehicules: [], maintenance: [], clients: [], factures: [] },
+  donnees: { reservations: [], vehicules: [], maintenance: [], clients: [], factures: [], modeles: [] },
 };
 
 export const jeton = () => ({ idToken: etat.session.idToken });
 
 // Modèles présentés sur le site (catégories vues par le client). Les véhicules
 // de la flotte, eux, sont suivis un par un avec leur immatriculation.
-export const MODELES = TARIFS;
+// Chargés depuis la collection « modeles » (onglet Flotte > Modèles) ; tant
+// qu'elle est vide, on garde la grille d'origine de contrat-modele.js.
+export const MODELES = { ...TARIFS };
 export const nomModele = (id) => (MODELES[id] && MODELES[id].nom) || id || "Modèle inconnu";
 
 export const STATUTS_VEHICULE = ["Disponible", "En circulation", "En réparation", "Hors service"];
@@ -31,7 +33,18 @@ export async function chargerTout() {
   })));
   noms.forEach((n, i) => { etat.donnees[n] = listes[i]; });
   etat.donnees.reservations.sort((a, b) => String(b.creeLe || "").localeCompare(String(a.creeLe || "")));
+  synchroniserModeles();
   return refusees;
+}
+
+// Recopie les modèles de Firestore dans MODELES (id → nom, prix, carburant…).
+export function synchroniserModeles() {
+  const liste = etat.donnees.modeles;
+  if (!liste.length) return;
+  for (const k of Object.keys(MODELES)) delete MODELES[k];
+  for (const m of [...liste].sort((a, b) => (a.ordre ?? 999) - (b.ordre ?? 999) || String(a.nom).localeCompare(String(b.nom)))) {
+    MODELES[m.id] = { ...m, nom: m.nom || [m.marque, m.modele].filter(Boolean).join(" ") };
+  }
 }
 
 // ---- disponibilité publique d'un modèle

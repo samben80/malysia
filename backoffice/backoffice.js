@@ -5,12 +5,13 @@ import {
   lireDocument,
   estConfigure,
 } from "../assets/firestore-rest.js";
-import { SOCIETE, FRAIS, TARIFS, conditionsGenerales } from "../assets/contrat-modele.js";
+import { SOCIETE, FRAIS, conditionsGenerales } from "../assets/contrat-modele.js";
 import {
-  etat, jeton, chargerTout, majDisponibilite, nomModele, STATUTS_ACTIFS, chevauche, alertesVehicule,
+  etat, jeton, chargerTout, majDisponibilite, nomModele, MODELES, STATUTS_ACTIFS, chevauche, alertesVehicule,
   cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO,
 } from "./commun.js";
 import { afficherFlotte } from "./flotte.js";
+import { afficherModeles } from "./modeles.js";
 import { afficherMaintenance } from "./maintenance.js";
 import { afficherClients, ficheClient, nomClient, majClientDepuisDossier } from "./clients.js";
 import { afficherFacturation } from "./facturation.js";
@@ -112,6 +113,7 @@ formConnexion.addEventListener("submit", async (ev) => {
 const ECRANS = {
   reservations: (el, param) => { if (param) selectionId = param; render(); },
   flotte: afficherFlotte,
+  modeles: afficherModeles,
   maintenance: afficherMaintenance,
   clients: afficherClients,
   facturation: afficherFacturation,
@@ -122,7 +124,7 @@ function router() {
   const [nom, param, param2] = location.hash.replace(/^#/, "").split("/").map(decodeURIComponent);
   const ecran = ECRANS[nom] ? nom : "reservations";
   document.querySelectorAll("[data-vue]").forEach((s) => { s.hidden = s.dataset.vue !== ecran; });
-  document.querySelectorAll("aside nav a").forEach((a) => a.classList.toggle("actif", a.getAttribute("href") === "#" + ecran));
+  document.querySelectorAll("aside nav a").forEach((a) => a.classList.toggle("actif", a.getAttribute("href") === "#" + (ecran === "modeles" ? "flotte" : ecran)));
   ECRANS[ecran](document.querySelector(`[data-vue="${ecran}"]`), param, param2);
   majBadges();
   window.scrollTo(0, 0);
@@ -351,7 +353,7 @@ function renderRetour(r) {
   const bloc = document.getElementById("bloc-retour");
   const v = etat.donnees.vehicules.find((x) => x.id === r.vehiculeAttribue);
   const jours = joursLocation(r);
-  const tarif = TARIFS[r.vehicule] || {};
+  const tarif = MODELES[r.vehicule] || {};
   bloc.innerHTML = `<h3>Retour du véhicule</h3>
     <form class="formulaire" id="form-retour">
       <label>Kilométrage au retour<input name="km" type="number" min="${escAttr(r.kmDepart || 0)}" required></label>
@@ -509,7 +511,7 @@ async function renderContrat(r, fiche) {
     try { existant = await lireDocument("contrats", r.contrat, jeton()); } catch {}
     if (selectionId !== r.id || !document.getElementById("bloc-contrat")) return;
   }
-  const tarif = TARIFS[r.vehicule] || {};
+  const tarif = MODELES[r.vehicule] || {};
   const jours = joursLocation(r);
   const attribue = etat.donnees.vehicules.find((x) => x.id === r.vehiculeAttribue);
   const v = existant ? existant.vehicule || {} : {};
@@ -524,7 +526,7 @@ async function renderContrat(r, fiche) {
       <label>Carburant<input name="carburant" value="${val(v.carburant, (attribue && attribue.carburant) || tarif.carburant)}"></label>
       <label>Kilométrage au départ<input name="kmDepart" type="number" min="0" value="${val(existant && existant.kmDepart, r.kmDepart ?? (attribue && attribue.kmActuel))}" placeholder="à la remise"></label>
       <label>Prix total TTC (MAD)<input name="prixTotal" type="number" min="0" required value="${val(loc.prixTotal, tarif.prixJour ? tarif.prixJour * jours : "")}"></label>
-      <label>Caution (MAD)<input name="caution" type="number" min="0" required value="${val(loc.caution)}"></label>
+      <label>Caution (MAD)<input name="caution" type="number" min="0" required value="${val(loc.caution, tarif.caution)}"></label>
       <label>Paiement<select name="paiement">${["Carte bancaire (CMI)", "Virement", "Espèces"].map((p) => `<option${p === paiement ? " selected" : ""}>${p}</option>`).join("")}</select></label>
       <label class="large">Options<input name="options" value="${val(loc.options)}" placeholder="siège bébé, conducteur additionnel…"></label>
       <label class="large">Agent<input name="agent" value="${val(existant && existant.agent)}"></label>
@@ -542,7 +544,7 @@ async function enregistrerContrat(r, fiche, existant, form) {
   const etatEl = document.getElementById("etat-contrat");
   const bouton = form.querySelector("button");
   const f = form.elements;
-  const tarif = TARIFS[r.vehicule] || {};
+  const tarif = MODELES[r.vehicule] || {};
   const kmSup = tarif.kmSup || 3;
   const nombreSaisi = (x) => (x.value === "" ? "" : Number(x.value));
   const locataire = {};

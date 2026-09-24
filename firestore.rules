@@ -61,6 +61,18 @@ service cloud.firestore {
       }
     }
 
+    // Modèles (marques, caractéristiques, prix, photos) : publics, car ils
+    // alimentent le site ; seule l'équipe les modifie.
+    match /modeles/{id} {
+      allow read: if true;
+      allow write: if equipe();
+      match /medias/{media} {
+        allow read: if true;
+        allow write: if equipe()
+          && (request.resource == null || (request.resource.data.image is string && request.resource.data.image.size() < 1000000));
+      }
+    }
+
     // Gestion interne : flotte (véhicules et immatriculations), maintenance,
     // fiches clients. Réservé à l'équipe.
     match /vehicules/{id} {

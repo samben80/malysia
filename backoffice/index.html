@@ -173,6 +173,17 @@ h2.immat{font-family:'IBM Plex Mono',monospace;font-size:18px}
 #bandeau-regles{background:rgba(176,121,58,.12);color:var(--attente);padding:12px 16px;font-size:13px;margin-bottom:20px}
 #impression{display:none}
 .actions-entete{display:flex;gap:8px;flex-wrap:wrap}
+.sous-onglets{display:flex;gap:0;border-bottom:1px solid var(--filet);margin:-8px 0 22px}
+.sous-onglets a{padding:10px 16px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+.sous-onglets a.actif{color:var(--accent);border-bottom-color:var(--accent)}
+.aide-ecran{font-size:12.5px;color:var(--texte2);margin:-8px 0 16px}
+.liste .ligne-modele{grid-template-columns:96px 1fr auto;align-items:center;gap:14px}
+.ligne-modele img{width:96px;height:60px;object-fit:cover;background:var(--fond);display:block}
+.photo-modele{margin:14px 0 0}
+.photo-modele img{width:100%;aspect-ratio:16/10;object-fit:cover;background:var(--fond);display:block;border:1px solid var(--filet)}
+.photo-modele figcaption{font-size:11px;color:var(--texte2);margin-top:4px}
+.statut[data-s="Sur le site"]{background:rgba(74,122,86,.14);color:var(--positif)}
+.statut[data-s="Masqué"]{background:rgba(44,33,26,.07);color:var(--texte2)}
 .panneau{background:var(--surface);border:1px solid var(--filet);padding:20px 22px;margin-bottom:24px}
 .panneau h2{font-size:16px;margin-bottom:8px}
 .panneau .aide{font-size:12.5px;color:var(--texte2);line-height:1.6;margin:0 0 6px}
@@ -298,6 +309,7 @@ h2.immat{font-family:'IBM Plex Mono',monospace;font-size:18px}
     </div>
     </section>
     <section data-vue="flotte" hidden></section>
+    <section data-vue="modeles" hidden></section>
     <section data-vue="maintenance" hidden></section>
     <section data-vue="clients" hidden></section>
     <section data-vue="facturation" hidden></section>

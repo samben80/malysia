@@ -8,6 +8,7 @@ import {
   champ, valeursFormulaire, badge, blocAlertes, normaliserImmat, cleImmat, aujourdhuiISO, executer,
 } from "./commun.js";
 import { lireTableur, versDateISO } from "./lecteur-tableur.js";
+import { sousOnglets } from "./modeles.js";
 
 let filtre = "";
 let selection = null; // id du véhicule ouvert, ou "nouveau"
@@ -31,6 +32,7 @@ function rendre() {
 
   section.innerHTML = `
     <div class="entete"><h1>Flotte</h1><div class="actions-entete"><button class="bouton secondaire" id="importer-flotte">Importer depuis Excel</button><button class="bouton" id="ajouter-vehicule">+ Ajouter un véhicule</button></div></div>
+    ${sousOnglets("flotte")}
     ${importation ? '<div class="panneau" id="zone-import"></div>' : ""}
     <div class="kpis">
       <div class="kpi"><div class="valeur">${compte("Disponible")}</div><div class="libelle">Disponibles</div></div>

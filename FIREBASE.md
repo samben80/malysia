@@ -100,6 +100,18 @@ service cloud.firestore {
       }
     }
 
+    // Modèles (marques, caractéristiques, prix, photos) : publics, car ils
+    // alimentent le site ; seule l'équipe les modifie.
+    match /modeles/{id} {
+      allow read: if true;
+      allow write: if equipe();
+      match /medias/{media} {
+        allow read: if true;
+        allow write: if equipe()
+          && (request.resource == null || (request.resource.data.image is string && request.resource.data.image.size() < 1000000));
+      }
+    }
+
     // Gestion interne : flotte (véhicules et immatriculations), maintenance,
     // fiches clients. Réservé à l'équipe.
     match /vehicules/{id} {
@@ -129,7 +141,7 @@ service cloud.firestore {
 }
 ```
 
-Ces règles ont été vérifiées sur l'émulateur Firestore local (51 cas : ce qu'un
+Ces règles ont été vérifiées sur l'émulateur Firestore local (61 cas : ce qu'un
 visiteur anonyme peut et ne peut pas faire, ce qu'un compte inconnu ne peut pas
 faire, ce que l'équipe peut faire).
 
@@ -175,6 +187,12 @@ publier une dans ce dépôt s'il en apparaît une plus tard pour un usage futur.
 - Disponibilité sur le site (`disponibilite/{modèle}`) : recalculée à chaque
   confirmation, annulation, retour ou changement de statut d'un véhicule. Un
   modèle n'apparaît complet que lorsque tous ses véhicules sont pris.
+- Modèles (`modeles/{id}`, photo dans `modeles/{id}/medias/photo`) : marque,
+  modèle, type, gamme, boîte, carburant, places, prix, photo. Lecture publique.
+  La section « Notre flotte » de `index.html`, le JSON-LD et `llms.txt` sont
+  régénérés à partir de ces fiches par `outils/catalogue.mjs`, lancé toutes
+  les 15 minutes par `.github/workflows/catalogue.yml` : le site reste du HTML
+  statique lisible sans JavaScript.
 - Maintenance (`maintenance`) : vidanges, pneus, réparations, avec coût,
   kilométrage et immobilisation. Alertes de vidange (tous les 10 000 km par
   défaut), de pneus (40 000 km), d'échéances à 30 jours.
