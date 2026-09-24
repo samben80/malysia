@@ -107,7 +107,18 @@ function offre(m) {
 
 // ---- programme
 
-const liste = await lire("modeles?pageSize=300");
+let liste;
+try {
+  liste = await lire("modeles?pageSize=300");
+} catch (e) {
+  // 403 : règles de sécurité pas encore publiées dans la console Firebase.
+  // On ne fait pas échouer la tâche (GitHub enverrait un e-mail toutes les 15 minutes).
+  if (/Firestore 403/.test(e.message)) {
+    console.log("Lecture des modèles refusée (règles Firebase pas encore publiées) : le site n'est pas modifié.");
+    process.exit(0);
+  }
+  throw e;
+}
 const modeles = ((liste && liste.documents) || []).map(doc)
   .filter((m) => m.visible !== false && m.prixJour > 0 && /^[a-z0-9-]+$/.test(m.id))
   .sort((a, b) => (a.ordre ?? 999) - (b.ordre ?? 999) || nomDe(a).localeCompare(nomDe(b)));
