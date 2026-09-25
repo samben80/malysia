@@ -69,10 +69,14 @@ function carte(m) {
   const image = m.photoSite
     ? `<img src="${esc(m.photoSite)}" width="1200" height="750" loading="lazy" decoding="async" alt="${esc(nom)} en location chez Malysia Car Pro au Maroc" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">`
     : "";
+  // crédit exigé par la licence des photos trouvées sur internet (Wikimedia Commons…)
+  const credit = m.photoSite && m.photoCredit
+    ? `\n            <small style="position: absolute; right: 8px; bottom: 6px; max-width: 80%; font-size: 9.5px; line-height: 1.3; text-align: right; color: rgba(255, 255, 255, 0.9); text-shadow: rgba(0, 0, 0, 0.7) 0px 1px 2px;">${m.photoSource ? `<a href="${esc(m.photoSource)}" rel="nofollow noopener" target="_blank" style="color: inherit;">${esc(m.photoCredit)}</a>` : esc(m.photoCredit)}</small>`
+    : "";
   return `<article class="scp4 veh ${CLASSES[type]}" style="background: rgb(253, 250, 244); border: 1px solid rgba(138, 82, 54, 0.1); display: flex; flex-direction: column; transition: transform 0.25s, border-color 0.25s;">
           <div style="position: relative; aspect-ratio: 16 / 10; background: rgb(246, 240, 230);">
             ${image}
-            <span style="position: absolute; top: 14px; left: 14px; pointer-events: none; background: rgba(251, 247, 240, 0.92); border: 1px solid rgba(138, 82, 54, 0.2); color: rgb(138, 82, 54); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; padding: 5px 9px;">${esc(type)}</span>
+            <span style="position: absolute; top: 14px; left: 14px; pointer-events: none; background: rgba(251, 247, 240, 0.92); border: 1px solid rgba(138, 82, 54, 0.2); color: rgb(138, 82, 54); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; padding: 5px 9px;">${esc(type)}</span>${credit}
           </div>
           <div style="padding: 22px; display: flex; flex-direction: column; gap: 14px; flex: 1 1 0%;">
             <div style="display: flex; gap: 14px; align-items: baseline; justify-content: space-between;">
@@ -98,7 +102,9 @@ function offre(m) {
   return {
     "@type": "Offer",
     itemOffered: { "@type": "Car", name: nomDe(m), description, vehicleConfiguration: m.type || "Berline",
-      ...(m.photoSite ? { image: `https://malysiacar.ma/${m.photoSite}` } : {}) },
+      ...(m.photoSite ? { image: m.photoCredit
+        ? { "@type": "ImageObject", url: `https://malysiacar.ma/${m.photoSite}`, creditText: m.photoCredit, ...(m.photoSource ? { acquireLicensePage: m.photoSource } : {}) }
+        : `https://malysiacar.ma/${m.photoSite}` } : {}) },
     priceSpecification: { "@type": "UnitPriceSpecification", price: Math.round(Number(m.prixJour) || 0), priceCurrency: "MAD", unitCode: "DAY",
       referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "DAY" } },
     availability: "https://schema.org/InStock",

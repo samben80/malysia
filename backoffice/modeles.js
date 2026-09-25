@@ -86,7 +86,7 @@ function rendreFiche() {
     ${m ? `<div class="ref">${escHTML(m.id)} · ${vehicules.length} véhicule${vehicules.length > 1 ? "s" : ""} dans la flotte</div>` : ""}
     <figure class="photo-modele">
       <img id="apercu-photo" src="${escAttr(m ? (m.vignette || photoParDefaut(m.id)) : "")}" alt="" ${m ? "" : "hidden"}>
-      <figcaption>Photo affichée sur le site (recadrée au format 16/10, 1200 × 750).</figcaption>
+      <figcaption>Photo affichée sur le site (recadrée au format 16/10, 1200 × 750).${m && m.photoSource ? ` <a href="${escAttr(m.photoSource)}" target="_blank" rel="noopener">Source de la photo</a>` : ""}</figcaption>
     </figure>
     <label class="bouton secondaire bloc">${m ? "Changer la photo" : "Choisir une photo"}<input type="file" id="fichier-photo" accept="image/*" hidden></label>
     <p class="etat" id="etat-photo"></p>
@@ -104,6 +104,7 @@ function rendreFiche() {
       ${champ({ nom: "kmSup", libelle: "Km supplémentaire (MAD)", valeur: d.kmSup, type: "number", attrs: 'min="0" step="0.5"' })}
       ${champ({ nom: "caution", libelle: "Caution (MAD)", valeur: d.caution, type: "number", attrs: 'min="0"' })}
       ${champ({ nom: "description", libelle: "Description courte (lue par Google et les IA)", valeur: d.description, type: "textarea", large: true, attrs: 'maxlength="300"' })}
+      ${champ({ nom: "photoCredit", libelle: "Crédit photo (affiché sur le site, obligatoire pour une photo trouvée sur internet)", valeur: d.photoCredit, large: true, attrs: 'maxlength="120" placeholder="Photo Prénom Nom, CC BY-SA 4.0"' })}
       ${champ({ nom: "ordre", libelle: "Ordre d'affichage", valeur: d.ordre, type: "number", attrs: 'min="0"' })}
       <label class="case"><input type="checkbox" name="visible" ${d.visible === false ? "" : "checked"}> Afficher sur le site</label>
       <datalist id="liste-gammes">${GAMMES.map((g) => `<option value="${escAttr(g)}">`).join("")}</datalist>
@@ -135,6 +136,8 @@ function rendreFiche() {
       photoEnAttente = await preparerPhoto(fichier);
       apercu.src = photoEnAttente.image;
       apercu.hidden = false;
+      const credit = zone.querySelector("#form-modele [name=photoCredit]");
+      if (credit && m && m.photoCredit && credit.value === m.photoCredit) credit.value = "";
       etatPhoto.textContent = m ? "Nouvelle photo prête : cliquez sur « Enregistrer »." : "Photo prête.";
     } catch (e) {
       etatPhoto.className = "etat erreur";
@@ -164,6 +167,7 @@ async function enregistrer(m, form) {
   if (photoEnAttente) {
     donnees.vignette = photoEnAttente.vignette;
     donnees.photoMaj = new Date();
+    donnees.photoSource = "";
   }
   await executer(etatEl, rendre, async () => {
     // la photo en pleine taille est rangée à part : la liste des modèles reste légère
@@ -229,7 +233,7 @@ async function reprendreModeles(etatEl) {
 }
 
 // Recadre la photo au format du site (16/10, 1200 × 750, WebP) et prépare une vignette.
-async function preparerPhoto(fichier) {
+export async function preparerPhoto(fichier) {
   const bitmap = await createImageBitmap(fichier);
   const rendu = (largeur, hauteur, qualite) => {
     const canvas = document.createElement("canvas");

@@ -9,11 +9,13 @@ import {
 } from "./commun.js";
 import { lireTableur, versDateISO } from "./lecteur-tableur.js";
 import { sousOnglets } from "./modeles.js";
+import { chargerDemo, supprimerDemo, demoSupprimable, estDemo } from "./demo.js";
 
 let filtre = "";
 let selection = null; // id du véhicule ouvert, ou "nouveau"
 let section = null;
 let importation = null; // null, ou { lignes analysées, bilan } pendant un import Excel
+let demo = null; // null, ou { message } quand le panneau de la flotte de démonstration est ouvert
 
 export function afficherFlotte(el, param) {
   section = el;
@@ -31,9 +33,10 @@ function rendre() {
     : filtre ? tries.filter((v) => v.statut === filtre) : tries;
 
   section.innerHTML = `
-    <div class="entete"><h1>Flotte</h1><div class="actions-entete"><button class="bouton secondaire" id="importer-flotte">Importer depuis Excel</button><button class="bouton" id="ajouter-vehicule">+ Ajouter un véhicule</button></div></div>
+    <div class="entete"><h1>Flotte</h1><div class="actions-entete"><button class="bouton secondaire" id="ouvrir-demo">Démonstration</button><button class="bouton secondaire" id="importer-flotte">Importer depuis Excel</button><button class="bouton" id="ajouter-vehicule">+ Ajouter un véhicule</button></div></div>
     ${sousOnglets("flotte")}
     ${importation ? '<div class="panneau" id="zone-import"></div>' : ""}
+    ${demo ? '<div class="panneau" id="zone-demo"></div>' : ""}
     <div class="kpis">
       <div class="kpi"><div class="valeur">${compte("Disponible")}</div><div class="libelle">Disponibles</div></div>
       <div class="kpi"><div class="valeur">${compte("En circulation")}</div><div class="libelle">En circulation</div></div>
@@ -52,7 +55,9 @@ function rendre() {
 
   section.querySelector("#ajouter-vehicule").addEventListener("click", () => { selection = "nouveau"; rendre(); });
   section.querySelector("#importer-flotte").addEventListener("click", () => { importation = { lignes: null }; rendre(); });
+  section.querySelector("#ouvrir-demo").addEventListener("click", () => { demo = demo ? null : { message: "" }; rendre(); });
   if (importation) rendreImport(section.querySelector("#zone-import"));
+  if (demo) rendreDemo(section.querySelector("#zone-demo"));
   section.querySelectorAll("[data-filtre]").forEach((b) => b.addEventListener("click", () => { filtre = b.dataset.filtre; rendre(); }));
   section.querySelectorAll(".liste .ligne").forEach((l) => l.addEventListener("click", () => { selection = l.dataset.id; rendre(); }));
   rendreFiche();
@@ -352,3 +357,29 @@ async function importer(zone) {
   rendre();
 }
 
+// ---- flotte de démonstration (véhicules fictifs, supprimables d'un clic)
+
+function rendreDemo(zone) {
+  const fictifs = etat.donnees.vehicules.filter(estDemo).length;
+  const supprimables = demoSupprimable().length;
+  zone.innerHTML = `
+    <h2>Flotte de démonstration</h2>
+    <p class="aide">Ajoute une cinquantaine de véhicules fictifs répartis sur tous les modèles, avec leur historique d'entretien, pour essayer le back-office.
+      Ajoute aussi les modèles Bentley Continental GTC, Bentayga, Flying Spur et Rolls-Royce Cullinan avec une photo libre de droits (Wikimedia Commons).
+      Ces 4 modèles restent masqués sur le site tant que vous ne cochez pas « Afficher sur le site » dans l'onglet Modèles.</p>
+    <p class="aide">Tant que les véhicules fictifs sont là, ils comptent dans les disponibilités affichées sur le site : supprimez-les une fois vos essais terminés.</p>
+    ${fictifs ? `<p class="aide">${fictifs} véhicule${fictifs > 1 ? "s" : ""} fictif${fictifs > 1 ? "s" : ""} dans la flotte.</p>` : ""}
+    ${fictifs ? "" : '<button class="bouton" id="charger-demo">Charger la flotte de démonstration</button>'}
+    ${supprimables ? `<button class="bouton danger" id="supprimer-demo">Supprimer les ${supprimables} véhicules fictifs</button>` : ""}
+    <button class="bouton secondaire" id="fermer-demo" type="button">Fermer</button>
+    <p class="etat" id="etat-demo">${escHTML(demo.message)}</p>`;
+  const etatEl = zone.querySelector("#etat-demo");
+  const lancer = (action) => executer(etatEl, rendre, async () => { demo.message = ""; demo.message = await action(etatEl); });
+  zone.querySelector("#fermer-demo").addEventListener("click", () => { demo = null; rendre(); });
+  const charger = zone.querySelector("#charger-demo");
+  if (charger) charger.addEventListener("click", () => lancer(chargerDemo));
+  const supprimer = zone.querySelector("#supprimer-demo");
+  if (supprimer) supprimer.addEventListener("click", () => {
+    if (confirm(`Supprimer les ${supprimables} véhicules fictifs et leur historique d'entretien ?`)) lancer(supprimerDemo);
+  });
+}

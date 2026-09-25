@@ -193,6 +193,13 @@ publier une dans ce dépôt s'il en apparaît une plus tard pour un usage futur.
   régénérés à partir de ces fiches par `outils/catalogue.mjs`, lancé toutes
   les 15 minutes par `.github/workflows/catalogue.yml` : le site reste du HTML
   statique lisible sans JavaScript.
+  Une photo trouvée sur internet doit porter son crédit (`photoCredit`,
+  `photoSource`), affiché sur la carte du site et dans le JSON-LD.
+- Démonstration (Flotte > « Démonstration », `backoffice/demo.js`) : crée
+  50 véhicules fictifs et leur historique d'entretien (`source: "demo"`,
+  supprimables d'un clic), plus les modèles Bentley Continental GTC,
+  Bentayga, Flying Spur et Rolls-Royce Cullinan, masqués du site, avec une
+  photo sous licence libre lue sur Wikimedia Commons par le navigateur.
 - Maintenance (`maintenance`) : vidanges, pneus, réparations, avec coût,
   kilométrage et immobilisation. Alertes de vidange (tous les 10 000 km par
   défaut), de pneus (40 000 km), d'échéances à 30 jours.
