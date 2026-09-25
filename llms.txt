@@ -13,14 +13,14 @@
 - Événements (mariages, tournages, congrès : coordination avec votre organisateur)
 
 ## Flotte et tarifs indicatifs (MAD par jour, TTC, dégressifs dès 7 jours, 250 km/jour inclus)
-- Dacia Logan — berline économique, 5 places, diesel, manuelle — 290
-- Volkswagen Golf 8 — compacte, 5 places, diesel, DSG — 480
-- Mercedes Classe E — berline d'affaires, 5 places, diesel, automatique — 1450
-- Hyundai Tucson — SUV familial, 5 places, hybride, automatique — 750
-- Mercedes Classe V — van, 7 places, diesel, automatique — 1900
-- Range Rover Sport — SUV premium, 5 places, essence, automatique — 2200
-- Porsche 911 Carrera — sportive, 2 places, essence, PDK — 5900
-- Renault Master 12 m3 — utilitaire, 3 places, diesel, manuelle — 550
+- Dacia Logan — berline, gamme économique, 5 places, diesel, manuelle — 290
+- Volkswagen Golf 8 — berline, gamme compacte, 5 places, diesel, automatique — 480
+- Mercedes Classe E — berline, gamme affaires, 5 places, diesel, automatique — 1450
+- Range Rover Sport — SUV, gamme premium, 5 places, essence, automatique — 2200
+- Porsche 911 Carrera — luxe & sport, gamme exception, 2 places, essence, automatique — 5900
+- Mercedes Classe V — van, gamme groupe, 7 places, diesel, automatique — 1900
+- Renault Master 12 m3 — utilitaire, gamme transport, 3 places, diesel, manuelle — 550
+- Hyundai Tucson — SUV, gamme familial, 5 places, hybride, automatique — 750
 
 ## Offre entreprises
 - Longue durée 12 mois, dès 4900 MAD par mois
