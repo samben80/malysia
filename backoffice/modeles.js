@@ -44,6 +44,7 @@ const photoParDefaut = (id) => `../assets/${id}.webp`;
 function rendre() {
   const modeles = [...etat.donnees.modeles].sort((a, b) => (a.ordre ?? 999) - (b.ordre ?? 999) || nomComplet(a).localeCompare(nomComplet(b)));
   const nbVehicules = (id) => etat.donnees.vehicules.filter((v) => v.modele === id).length;
+  const masques = modeles.filter((m) => m.visible === false);
   section.innerHTML = `
     <div class="entete"><h1>Flotte</h1><div class="actions-entete"><button class="bouton" id="nouveau-modele">+ Nouveau modèle</button></div></div>
     ${sousOnglets("modeles")}
@@ -53,6 +54,12 @@ function rendre() {
       <button class="bouton" id="reprendre-modeles">Reprendre les 8 modèles du site</button>
       <p class="etat" id="etat-reprise"></p>
     </div>`}
+    ${masques.length ? `<div class="panneau">
+      <h2>${masques.length} modèle${masques.length > 1 ? "s" : ""} masqué${masques.length > 1 ? "s" : ""} sur le site</h2>
+      <p class="aide">${escHTML(masques.map(nomComplet).join(", "))}. Vérifiez leurs prix, puis publiez-les : ils apparaîtront dans « Notre flotte » et dans le choix du véhicule du formulaire de réservation.</p>
+      <button class="bouton" id="publier-masques">Afficher ${masques.length > 1 ? `les ${masques.length} modèles` : "ce modèle"} sur le site</button>
+      <p class="etat" id="etat-publication"></p>
+    </div>` : ""}
     <p class="aide-ecran">Ce que vous enregistrez ici s'affiche sur le site dans la section « Notre flotte », environ 15 à 30 minutes après l'enregistrement.</p>
     <div class="disposition">
       <div class="liste">${modeles.length ? modeles.map((m) => `
@@ -69,6 +76,15 @@ function rendre() {
     </div>`;
   section.querySelector("#nouveau-modele").addEventListener("click", () => { selection = "nouveau"; photoEnAttente = null; rendre(); });
   section.querySelectorAll(".liste .ligne").forEach((l) => l.addEventListener("click", () => { selection = l.dataset.id; photoEnAttente = null; rendre(); }));
+  const publier = section.querySelector("#publier-masques");
+  if (publier) publier.addEventListener("click", () => executer(section.querySelector("#etat-publication"), rendre, async () => {
+    for (const m of masques) {
+      const maj = { visible: true, modifieLe: new Date() };
+      await corrigerDocument("modeles", m.id, maj, jeton());
+      Object.assign(m, maj);
+    }
+    synchroniserModeles();
+  }));
   const reprendre = section.querySelector("#reprendre-modeles");
   if (reprendre) reprendre.addEventListener("click", () => reprendreModeles(section.querySelector("#etat-reprise")));
   rendreFiche();

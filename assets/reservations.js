@@ -18,39 +18,55 @@ const infoVehicule = document.getElementById("vehicule-choisi-info");
 const infoDispo = document.getElementById("dispo-info");
 
 // ---- sélection d'un véhicule depuis une fiche de la flotte
+// Le menu « Véhicule souhaité » propose un modèle, une marque ou une
+// catégorie. Le bouton « Réserver » d'une fiche le règle sur ce modèle.
 
 document.querySelectorAll("[data-vehicule-id]").forEach((lien) => {
   lien.addEventListener("click", () => {
     if (!champVehicule) return;
     champVehicule.value = lien.dataset.vehiculeId;
-    if (infoVehicule) {
+    if (champVehicule.value !== lien.dataset.vehiculeId && infoVehicule) {
+      // modèle absent du menu (page ancienne en cache) : on l'indique à part
       infoVehicule.hidden = false;
       infoVehicule.textContent = `Véhicule choisi : ${lien.dataset.vehiculeNom}`;
     }
     verifierDisponibilite();
   });
 });
+if (champVehicule) champVehicule.addEventListener("change", () => {
+  if (infoVehicule) infoVehicule.hidden = true;
+  verifierDisponibilite();
+});
 
 // ---- disponibilité indicative (l'équipe vérifie toujours par téléphone)
 
+function optionChoisie() {
+  return champVehicule && champVehicule.options ? champVehicule.options[champVehicule.selectedIndex] : null;
+}
+
 async function verifierDisponibilite() {
-  if (!infoDispo || !champVehicule || !champVehicule.value || !estConfigure()) return;
+  if (!infoDispo || !champVehicule || !estConfigure()) return;
   const depart = formReservation.elements["depart"].value;
   const retour = formReservation.elements["retour"].value;
-  if (!depart || !retour) {
+  if (!champVehicule.value || !depart || !retour) {
     infoDispo.hidden = true;
     return;
   }
+  // une marque ou une catégorie : disponible si l'un de ses modèles l'est
+  const option = optionChoisie();
+  const groupe = option && option.dataset.modeles ? option.dataset.modeles.split(" ") : null;
   try {
-    const doc = await lireDocument("disponibilite", champVehicule.value);
-    const occupations = (doc && doc.occupations) || [];
-    const chevauche = occupations.some(
-      (o) => depart < o.fin && retour > o.debut
-    );
+    const libres = await Promise.all((groupe || [champVehicule.value]).map(async (id) => {
+      const doc = await lireDocument("disponibilite", id);
+      return !((doc && doc.occupations) || []).some((o) => depart < o.fin && retour > o.debut);
+    }));
+    const libre = libres.some(Boolean);
     infoDispo.hidden = false;
-    infoDispo.textContent = chevauche
-      ? "Ce véhicule est déjà réservé sur une partie de ces dates. Envoyez votre demande, nous vous proposons une alternative si besoin."
-      : "Ce véhicule est disponible sur ces dates, sous réserve de confirmation.";
+    infoDispo.textContent = groupe
+      ? (libre ? "Au moins un véhicule de ce choix est disponible sur ces dates, sous réserve de confirmation."
+        : "Tous les véhicules de ce choix sont déjà réservés sur une partie de ces dates. Envoyez votre demande, nous vous proposons une alternative si besoin.")
+      : (libre ? "Ce véhicule est disponible sur ces dates, sous réserve de confirmation."
+        : "Ce véhicule est déjà réservé sur une partie de ces dates. Envoyez votre demande, nous vous proposons une alternative si besoin.");
   } catch {
     infoDispo.hidden = true; // en cas de souci réseau, on n'affiche rien plutôt qu'une fausse alerte
   }
@@ -73,8 +89,10 @@ function estSpam(form) {
 function vehiculeChoisi() {
   const id = champVehicule && champVehicule.value;
   if (!id) return { id: "", nom: "" };
-  const lien = document.querySelector(`[data-vehicule-id="${id}"]`);
-  return { id, nom: (lien && lien.dataset.vehiculeNom) || id };
+  const lien = document.querySelector(`[data-vehicule-id="${CSS.escape(id)}"]`);
+  const option = optionChoisie();
+  const nom = (lien && lien.dataset.vehiculeNom) || (option && option.textContent.split(" · ")[0].trim()) || id;
+  return { id, nom: id.startsWith("cat:") ? `${nom}, modèle au choix` : nom };
 }
 
 // ---- envoi du moteur de réservation

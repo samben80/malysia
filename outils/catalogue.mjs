@@ -97,6 +97,33 @@ function carte(m) {
         </article>`;
 }
 
+// Menu « Véhicule souhaité » du formulaire de réservation : le client choisit
+// un modèle précis, une marque ou une catégorie (le back-office attribue
+// ensuite un véhicule précis, que le client ne voit jamais).
+function choixVehicule(modeles) {
+  const option = (valeur, libelle, extra = "") => `\n              <option value="${esc(valeur)}"${extra}>${esc(libelle)}</option>`;
+  const des = (liste) => `dès ${prix(Math.min(...liste.map((m) => m.prixJour)))} MAD / jour`;
+  const grouper = (cle) => {
+    const groupes = new Map();
+    for (const m of modeles) if (m[cle]) groupes.set(m[cle], [...(groupes.get(m[cle]) || []), m]);
+    return groupes;
+  };
+  const marques = [...grouper("marque")].filter(([, l]) => l.length > 1).sort(([a], [b]) => a.localeCompare(b));
+  const categories = [...grouper("type")].sort(([a], [b]) => Object.keys(CLASSES).indexOf(a) - Object.keys(CLASSES).indexOf(b));
+  const ids = (l) => ` data-modeles="${esc(l.map((m) => m.id).join(" "))}"`;
+  return `<label style="grid-column: 1 / -1; background: rgb(242, 234, 220); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(122, 102, 86);">Véhicule souhaité</span>
+          <select name="vehicule" id="champ-vehicule" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26); font-family: inherit; width: 100%;">${option("", "Pas de préférence, conseillez-moi")}
+            <optgroup label="Un modèle précis">${modeles.map((m) => option(m.id, `${nomDe(m)} · ${prix(m.prixJour)} MAD / jour`)).join("")}
+            </optgroup>${marques.length ? `
+            <optgroup label="Une marque, modèle au choix">${marques.map(([marque, l]) => option(`marque:${marque}`, `${marque}, ${l.map((m) => m.modele || nomDe(m)).join(" ou ")} · ${des(l)}`, ids(l))).join("")}
+            </optgroup>` : ""}
+            <optgroup label="Une catégorie, modèle au choix">${categories.map(([type, l]) => option(`cat:${type}`, `${type} · ${des(l)}`, ids(l))).join("")}
+            </optgroup>
+          </select>
+        </label>`;
+}
+
 function offre(m) {
   const description = m.description || `${m.categorie || m.type} ${caracteristiques(m).join(", ").toLowerCase()}.`;
   return {
@@ -164,6 +191,9 @@ let html = readFileSync(join(RACINE, "index.html"), "utf8");
 const bloc = /(<!-- catalogue:debut[^>]*-->\n\s*)[\s\S]*?(\n\s*<!-- catalogue:fin -->)/;
 if (!bloc.test(html)) throw new Error("repères catalogue:debut / catalogue:fin introuvables dans index.html");
 html = html.replace(bloc, (_, debut, fin) => debut + modeles.map(carte).join("\n      \n        ") + fin);
+const repereChoix = /(<!-- choix-vehicule:debut[^>]*-->\n\s*)[\s\S]*?(\n?\s*<!-- choix-vehicule:fin -->)/;
+if (!repereChoix.test(html)) throw new Error("repères choix-vehicule:debut / choix-vehicule:fin introuvables dans index.html");
+html = html.replace(repereChoix, (_, debut, fin) => debut + choixVehicule(modeles) + fin);
 html = html.replace(/(<script type="application\/ld\+json">)([\s\S]*?)(<\/script>)/, (_, a, json, b) => {
   const donnees = JSON.parse(json);
   const entreprise = donnees["@graph"].find((x) => x["@type"] === "AutoRental");

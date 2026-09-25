@@ -193,6 +193,12 @@ publier une dans ce dépôt s'il en apparaît une plus tard pour un usage futur.
   régénérés à partir de ces fiches par `outils/catalogue.mjs`, lancé toutes
   les 15 minutes par `.github/workflows/catalogue.yml` : le site reste du HTML
   statique lisible sans JavaScript.
+  Le menu « Véhicule souhaité » du formulaire de réservation est généré au
+  même endroit : un modèle précis, une marque (`marque:Bentley`) ou une
+  catégorie (`cat:SUV`). Pour une marque, une catégorie ou « pas de
+  préférence », l'équipe attribue un véhicule avant de confirmer ; son modèle
+  devient celui de la réservation (demande d'origine gardée dans
+  `vehiculeDemande` / `vehiculeNomDemande`).
   Une photo trouvée sur internet doit porter son crédit (`photoCredit`,
   `photoSource`), affiché sur la carte du site et dans le JSON-LD.
 - Démonstration (Flotte > « Démonstration », `backoffice/demo.js`) : crée

@@ -4,12 +4,15 @@ import { creerDocument, corrigerDocument, supprimerDocument } from "../assets/fi
 import {
   etat, jeton, nomModele, majDisponibilite, alertesVehicule, formateDate, nombre, mad, escHTML, escAttr,
   champ, valeursFormulaire, badge, blocAlertes, aujourdhuiISO, executer, messageErreur,
+  infosModele, barreFiltres, lierFiltres, contientTexte, decalerJours,
 } from "./commun.js";
 
 export const TYPES_INTERVENTION = ["Vidange", "Pneus", "Freins", "Révision", "Réparation", "Carrosserie", "Batterie", "Autre"];
 const STATUTS_INTERVENTION = ["Planifiée", "En cours", "Terminée"];
 
 let filtre = "";
+const criteres = { texte: "", marque: "", modele: "", garage: "", periode: "" };
+const PERIODES = [["30j", "30 derniers jours"], ["mois", "Ce mois-ci"], ["3mois", "3 derniers mois"], ["annee", "Cette année"], ["an-1", "L'année dernière"], ["avenir", "À venir"]];
 let selection = null; // id d'intervention, ou "nouvelle"
 let vehiculePropose = "";
 let section = null;
@@ -31,11 +34,6 @@ function rendre() {
   const ouvertes = maintenance.filter((m) => m.statut !== "Terminée");
   const aPrevoir = vehicules.map((v) => ({ v, alertes: alertesVehicule(v) })).filter((x) => x.alertes.length);
 
-  const tries = [...maintenance].sort((a, b) =>
-    (a.statut === "Terminée") - (b.statut === "Terminée") || String(b.date).localeCompare(String(a.date)));
-  const visibles = filtre === "ouvertes" ? tries.filter((m) => m.statut !== "Terminée")
-    : filtre === "autres" ? tries.filter((m) => !["Vidange", "Pneus", "Réparation"].includes(m.type))
-    : filtre ? tries.filter((m) => m.type === filtre) : tries;
 
   section.innerHTML = `
     <div class="entete"><h1>Maintenance</h1><button class="bouton" id="nouvelle-intervention">+ Nouvelle intervention</button></div>
@@ -45,21 +43,78 @@ function rendre() {
       <div class="kpi"><div class="valeur">${nombre(cout(mois))}</div><div class="libelle">Coût du mois (MAD)</div></div>
       <div class="kpi"><div class="valeur">${nombre(cout(annee))}</div><div class="libelle">Coût ${annee} (MAD)</div></div>
     </div>
-    ${aPrevoir.length ? `<div class="a-prevoir"><h3 class="sous-titre">À prévoir</h3>${aPrevoir.map(({ v, alertes }) =>
-      `<div class="ligne-alerte"><a href="#flotte/${escAttr(v.id)}" class="immat">${escHTML(v.immatriculation)}</a> <span>${escHTML(nomModele(v.modele))}</span>${blocAlertes(alertes)}</div>`).join("")}</div>` : ""}
+    ${aPrevoir.length ? `<details class="a-prevoir"${aPrevoir.length <= 5 ? " open" : ""}><summary class="sous-titre">À prévoir : ${aPrevoir.length} véhicule${aPrevoir.length > 1 ? "s" : ""}</summary>${aPrevoir.map(({ v, alertes }) =>
+      `<div class="ligne-alerte"><a href="#flotte/${escAttr(v.id)}" class="immat">${escHTML(v.immatriculation)}</a> <span>${escHTML(nomModele(v.modele))}</span>${blocAlertes(alertes)}</div>`).join("")}</details>` : ""}
     <div class="filtres">
       ${[["", "Toutes"], ["ouvertes", "Non terminées"], ["Vidange", "Vidanges"], ["Pneus", "Pneus"], ["Réparation", "Réparations"], ["autres", "Autres"]]
         .map(([v, l]) => `<button data-filtre="${v}" class="${v === filtre ? "actif" : ""}">${l}</button>`).join("")}
     </div>
+    ${maintenance.length ? barreFiltres(criteres, menusFiltres()) : ""}
+    <p class="compte-filtre" id="compte-maintenance"></p>
     <div class="disposition">
-      <div class="liste">${visibles.length ? visibles.map(ligne).join("") : `<div class="vide">${maintenance.length ? "Aucune intervention pour ce filtre." : "Aucune intervention enregistrée."}</div>`}</div>
+      <div class="liste" id="liste-maintenance"></div>
       <div class="fiche" id="fiche-intervention"></div>
     </div>`;
 
   section.querySelector("#nouvelle-intervention").addEventListener("click", () => { selection = "nouvelle"; vehiculePropose = ""; rendre(); });
   section.querySelectorAll("[data-filtre]").forEach((b) => b.addEventListener("click", () => { filtre = b.dataset.filtre; rendre(); }));
-  section.querySelectorAll(".liste .ligne").forEach((l) => l.addEventListener("click", () => { selection = l.dataset.id; rendre(); }));
+  const barre = section.querySelector(".barre-filtres");
+  if (barre) lierFiltres(barre, criteres, rendreListe);
+  rendreListe();
   rendreFiche();
+}
+
+function menusFiltres() {
+  const modeles = [...new Set(etat.donnees.maintenance.map((m) => (vehicule(m.vehiculeId) || {}).modele).filter(Boolean))];
+  const uniques = (liste) => [...new Set(liste.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  return {
+    recherche: "Rechercher : immatriculation, modèle, garage, pièces…",
+    menus: [
+      { nom: "marque", libelle: "Toutes les marques", options: uniques(modeles.map((id) => infosModele(id).marque)) },
+      { nom: "modele", libelle: "Tous les modèles", options: modeles.map((id) => [id, nomModele(id)]).sort((a, b) => a[1].localeCompare(b[1])) },
+      { nom: "garage", libelle: "Tous les garages", options: uniques(etat.donnees.maintenance.map((m) => m.garage)) },
+      { nom: "periode", libelle: "Toutes les dates", options: PERIODES },
+    ],
+  };
+}
+
+function dansPeriode(date, periode) {
+  const d = String(date || ""), auj = aujourdhuiISO(), an = Number(auj.slice(0, 4));
+  switch (periode) {
+    case "30j": return d >= decalerJours(auj, -30) && d <= auj;
+    case "mois": return d.startsWith(auj.slice(0, 7));
+    case "3mois": return d >= decalerJours(auj, -92) && d <= auj;
+    case "annee": return d.startsWith(String(an));
+    case "an-1": return d.startsWith(String(an - 1));
+    case "avenir": return d > auj;
+    default: return true;
+  }
+}
+
+function interventionsFiltrees() {
+  return etat.donnees.maintenance.filter((m) => {
+    if (filtre === "ouvertes" ? m.statut === "Terminée" : filtre === "autres" ? ["Vidange", "Pneus", "Réparation"].includes(m.type) : filtre && m.type !== filtre) return false;
+    const v = vehicule(m.vehiculeId) || {};
+    if (criteres.marque && infosModele(v.modele).marque !== criteres.marque) return false;
+    if (criteres.modele && v.modele !== criteres.modele) return false;
+    if (criteres.garage && m.garage !== criteres.garage) return false;
+    if (!dansPeriode(m.date, criteres.periode)) return false;
+    return contientTexte(criteres.texte, v.immatriculation, nomModele(v.modele), m.type, m.garage, m.description, m.statut);
+  }).sort((a, b) => (a.statut === "Terminée") - (b.statut === "Terminée") || String(b.date).localeCompare(String(a.date)));
+}
+
+// Ne redessine que la liste : la saisie dans la recherche garde le curseur.
+function rendreListe() {
+  const liste = section.querySelector("#liste-maintenance");
+  if (!liste) return;
+  const total = etat.donnees.maintenance.length;
+  const visibles = interventionsFiltrees();
+  liste.innerHTML = visibles.length ? visibles.map(ligne).join("")
+    : `<div class="vide">${total ? "Aucune intervention ne correspond à ces filtres." : "Aucune intervention enregistrée."}</div>`;
+  liste.querySelectorAll(".ligne").forEach((l) => l.addEventListener("click", () => { selection = l.dataset.id; rendre(); }));
+  const cout = visibles.reduce((s, m) => s + (Number(m.cout) || 0), 0);
+  section.querySelector("#compte-maintenance").textContent = visibles.length
+    ? `${visibles.length} intervention${visibles.length > 1 ? "s" : ""}${visibles.length !== total ? ` sur ${total}` : ""} · ${mad(cout)}` : "";
 }
 
 function ligne(m) {

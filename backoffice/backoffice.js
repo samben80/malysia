@@ -9,6 +9,7 @@ import { SOCIETE, FRAIS, conditionsGenerales } from "../assets/contrat-modele.js
 import {
   etat, jeton, chargerTout, majDisponibilite, nomModele, MODELES, STATUTS_ACTIFS, chevauche, alertesVehicule,
   cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO, messageErreur,
+  estDemandeGroupe, correspondDemande,
 } from "./commun.js";
 import { afficherFlotte } from "./flotte.js";
 import { afficherModeles } from "./modeles.js";
@@ -217,6 +218,7 @@ function renderFiche() {
     ${client && client.listeNoire ? `<p class="alerte">Client en liste noire${client.motifListeNoire ? " : " + escHTML(client.motifListeNoire) : ""}</p>` : ""}
     <h2>${escHTML(r.vehiculeNom || "Véhicule non précisé")}</h2>
     <div class="ref">${r.id}</div>
+    ${r.vehiculeNomDemande !== undefined && r.vehiculeNomDemande !== r.vehiculeNom ? `<p class="aide">Demande du client : ${escHTML(r.vehiculeNomDemande || "pas de préférence")}</p>` : ""}
     <div class="champs">
       <div><span>Client</span>${cle ? `<a href="#clients/${escAttr(cle)}">${escHTML(nomClient(client) || "Voir la fiche")}</a>` : "—"}</div>
       <div><span>Téléphone</span><a class="tel" href="tel:${escAttr(r.telephone)}">${escHTML(r.telephone || "—")}</a></div>
@@ -227,7 +229,7 @@ function renderFiche() {
       <div><span>Restitution</span>${escHTML(r.lieuRestitution || "—")}</div>
       ${r.kmDepart !== undefined && r.kmDepart !== "" ? `<div><span>Km départ / retour</span>${nombre(r.kmDepart)}${r.kmRetour !== undefined && r.kmRetour !== "" ? " → " + nombre(r.kmRetour) + ` (${nombre(r.kmRetour - r.kmDepart)} km)` : ""}</div>` : ""}
     </div>
-    ${STATUTS_ACTIFS.includes(r.statut) ? '<div class="bloc" id="bloc-attribution"></div>' : ""}
+    ${STATUTS_ACTIFS.includes(r.statut) || r.statut === "À confirmer" ? '<div class="bloc" id="bloc-attribution"></div>' : ""}
     ${prochain
       ? `<button class="action" id="bouton-action">${libelle}</button><p class="aide">${aide}</p>`
       : `<p class="aide">${aide}</p>`}
@@ -246,7 +248,7 @@ function renderFiche() {
   if (prochain) {
     document.getElementById("bouton-action").addEventListener("click", () => appliquerAction(r, prochain));
   }
-  if (STATUTS_ACTIFS.includes(r.statut)) renderAttribution(r);
+  if (STATUTS_ACTIFS.includes(r.statut) || r.statut === "À confirmer") renderAttribution(r);
   if (avantRemise) renderRemise(r);
   if (r.statut === "En cours") renderRetour(r);
   if (annulable) document.getElementById("annuler-reservation").addEventListener("click", () => annuler(r));
@@ -278,16 +280,19 @@ function renderAttribution(r) {
     const motifs = conflits(r, v);
     return `<option value="${escAttr(v.id)}"${v.id === r.vehiculeAttribue ? " selected" : ""}>${escHTML(v.immatriculation)}${v.modele !== r.vehicule ? " · " + escHTML(nomModele(v.modele)) : ""}${motifs.length ? " ⚠ " + escHTML(motifs.join(", ")) : ""}</option>`;
   };
-  const memeModele = vehicules.filter((v) => v.modele === r.vehicule);
-  const autres = vehicules.filter((v) => v.modele !== r.vehicule);
+  // demande d'origine du client : un modèle, une marque, une catégorie ou rien
+  const demande = r.vehiculeDemande !== undefined ? r.vehiculeDemande : r.vehicule;
+  const memeModele = vehicules.filter((v) => correspondDemande(demande, v.modele));
+  const autres = vehicules.filter((v) => !correspondDemande(demande, v.modele));
   const motifsActuel = actuel ? conflits(r, actuel) : [];
   bloc.innerHTML = `<h3>Véhicule attribué</h3>
     ${vehicules.length ? `<select id="choix-vehicule">
       <option value="">Non attribué</option>
-      ${memeModele.length ? `<optgroup label="${escAttr(nomModele(r.vehicule))}">${memeModele.map(option).join("")}</optgroup>` : ""}
-      ${autres.length ? `<optgroup label="Autres modèles (surclassement)">${autres.map(option).join("")}</optgroup>` : ""}
+      ${memeModele.length ? `<optgroup label="${escAttr(nomModele(demande))}">${memeModele.map(option).join("")}</optgroup>` : ""}
+      ${autres.length ? `<optgroup label="${demande ? "Autres modèles (surclassement)" : "Tous les véhicules"}">${autres.map(option).join("")}</optgroup>` : ""}
     </select>
     ${motifsActuel.length ? `<p class="alerte">Attention : ce véhicule est ${escHTML(motifsActuel.join(", "))}.</p>` : ""}
+    ${!actuel && (!demande || estDemandeGroupe(demande)) ? `<p class="aide">Le client a demandé ${escHTML(demande ? nomModele(demande) : "sans préférence")} : choisissez le véhicule, son modèle sera repris dans la réservation, le contrat et la facture.</p>` : ""}
     <p class="aide">L'immatriculation choisie est reprise dans le contrat. Le client, lui, ne voit que le modèle.</p>`
     : '<p class="aide">Aucun véhicule dans la flotte. <a href="#flotte">Ajoutez vos véhicules</a> avec leur immatriculation pour pouvoir les attribuer.</p>'}
     <p class="etat" id="etat-attribution"></p>`;
@@ -304,8 +309,19 @@ function renderAttribution(r) {
     etatEl.textContent = "Enregistrement…";
     try {
       const maj = { vehiculeAttribue: v ? v.id : "", immatriculation: v ? v.immatriculation : "" };
+      // marque, catégorie ou sans préférence : le modèle du véhicule choisi devient celui de la réservation
+      if (!demande || estDemandeGroupe(demande)) {
+        if (r.vehiculeDemande === undefined) Object.assign(maj, { vehiculeDemande: r.vehicule || "", vehiculeNomDemande: r.vehiculeNom || "" });
+        Object.assign(maj, v ? { vehicule: v.modele, vehiculeNom: nomModele(v.modele) }
+          : { vehicule: demande || "", vehiculeNom: r.vehiculeNomDemande ?? maj.vehiculeNomDemande ?? r.vehiculeNom ?? "" });
+      }
+      const ancienModele = r.vehicule;
       await corrigerDocument("reservations", r.id, maj, jeton());
       Object.assign(r, maj);
+      if (STATUTS_ACTIFS.includes(r.statut) && ancienModele !== r.vehicule) {
+        await majDisponibilite(ancienModele);
+        await majDisponibilite(r.vehicule);
+      }
       render();
     } catch (e) {
       select.disabled = false;
@@ -671,6 +687,9 @@ function actionPour(statut) {
 
 async function appliquerAction(r, prochainStatut) {
   await ecrire("etat-action", async () => {
+    if (prochainStatut === "Confirmée" && (!r.vehicule || estDemandeGroupe(r.vehicule)) && etat.donnees.vehicules.length) {
+      throw new Error(`le client a demandé ${r.vehicule ? nomModele(r.vehicule) : "sans préférence"}. Choisissez d'abord le véhicule attribué ci-dessous.`);
+    }
     await corrigerDocument("reservations", r.id, { statut: prochainStatut }, jeton());
     r.statut = prochainStatut;
     if (prochainStatut === "Confirmée") await majDisponibilite(r.vehicule);

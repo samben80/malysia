@@ -155,7 +155,7 @@ function genererVehicules() {
         intervalleVidangeKm: prestige ? 15000 : 10000, intervallePneusKm: prestige ? 30000 : 40000,
         notes: "Véhicule fictif (flotte de démonstration).",
         _entretien: {
-          vidangeKm: Math.max(0, kmActuel - (n % 7 === 3 ? entre(10200, 12500) : n % 6 === 0 ? entre(9100, 9900) : entre(800, 8000))),
+          vidangeKm: Math.max(Math.round(kmActuel * 0.3), kmActuel - (n % 7 === 3 ? entre(10200, 12500) : n % 6 === 0 ? entre(9100, 9900) : entre(800, 8000))),
           pneusKm: kmActuel > 30000 && n % 4 === 0 ? kmActuel - entre(5000, 38000) : null,
           garage: choisir(GARAGES),
           cout: prestige ? entre(4500, 9000) : entre(450, 1400),

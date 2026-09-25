@@ -15,7 +15,69 @@ export const jeton = () => ({ idToken: etat.session.idToken });
 // Chargés depuis la collection « modeles » (onglet Flotte > Modèles) ; tant
 // qu'elle est vide, on garde la grille d'origine de contrat-modele.js.
 export const MODELES = { ...TARIFS };
-export const nomModele = (id) => (MODELES[id] && MODELES[id].nom) || id || "Modèle inconnu";
+// Sur le site, le client peut demander un modèle précis, ou seulement une
+// marque (« marque:Bentley ») ou une catégorie (« cat:SUV ») : l'équipe
+// choisit alors le modèle en attribuant un véhicule.
+export const estDemandeGroupe = (id) => /^(cat|marque):/.test(String(id || ""));
+export function nomModele(id) {
+  if (MODELES[id] && MODELES[id].nom) return MODELES[id].nom;
+  const m = String(id || "").match(/^(cat|marque):(.+)$/);
+  if (m) return `${m[2]}, modèle au choix`;
+  return id || "Modèle inconnu";
+}
+// Marque, catégorie du site (type) et gamme d'un modèle.
+export function infosModele(id) {
+  const m = MODELES[id] || {};
+  return { marque: m.marque || String(m.nom || "").split(" ")[0] || "", type: m.type || "", gamme: m.categorie || "" };
+}
+// Le modèle correspond-il à la demande du client (modèle, marque ou catégorie) ?
+export function correspondDemande(demande, modele) {
+  if (!demande) return false;
+  if (demande === modele) return true;
+  const [, genre, valeur] = String(demande).match(/^(cat|marque):(.+)$/) || [];
+  if (!genre) return false;
+  const i = infosModele(modele);
+  return genre === "cat" ? i.type === valeur : i.marque.toLowerCase() === valeur.toLowerCase();
+}
+
+// ---- filtres des listes (recherche + menus déroulants)
+
+export const sansAccentsMinuscules = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+// Barre de filtres : une recherche libre et des menus. `criteres` garde les valeurs choisies.
+export function barreFiltres(criteres, { recherche, menus }) {
+  const actifs = Object.values(criteres).some(Boolean);
+  return `<div class="barre-filtres">
+    <input type="search" data-critere="texte" value="${escAttr(criteres.texte || "")}" placeholder="${escAttr(recherche)}" aria-label="${escAttr(recherche)}">
+    ${menus.filter((m) => m.options.length > 1 || criteres[m.nom]).map((m) => `<select data-critere="${m.nom}" aria-label="${escAttr(m.libelle)}">
+      <option value="">${escHTML(m.libelle)}</option>
+      ${m.options.map((o) => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${escAttr(v)}"${String(v) === String(criteres[m.nom] || "") ? " selected" : ""}>${escHTML(l)}</option>`; }).join("")}
+    </select>`).join("")}
+    <button type="button" class="lien-reinit" data-reinit ${actifs ? "" : "hidden"}>Effacer les filtres</button>
+  </div>`;
+}
+
+export function lierFiltres(zone, criteres, surChangement) {
+  const reinit = zone.querySelector("[data-reinit]");
+  const maj = () => { if (reinit) reinit.hidden = !Object.values(criteres).some(Boolean); surChangement(); };
+  zone.querySelectorAll("[data-critere]").forEach((el) => {
+    el.addEventListener(el.tagName === "INPUT" ? "input" : "change", () => { criteres[el.dataset.critere] = el.value.trim(); maj(); });
+  });
+  if (reinit) reinit.addEventListener("click", () => {
+    for (const k of Object.keys(criteres)) criteres[k] = "";
+    zone.querySelectorAll("[data-critere]").forEach((el) => { el.value = ""; });
+    maj();
+  });
+}
+
+// Tous les mots cherchés doivent apparaître dans l'un des textes.
+export function contientTexte(recherche, ...textes) {
+  const mots = sansAccentsMinuscules(recherche).split(/\s+/).filter(Boolean);
+  if (!mots.length) return true;
+  const botte = sansAccentsMinuscules(textes.filter((t) => t != null).join(" ")).replace(/[-\s]/g, " ");
+  const compacte = botte.replace(/ /g, "");
+  return mots.every((m) => botte.includes(m) || compacte.includes(m.replace(/-/g, "")));
+}
 
 export const STATUTS_VEHICULE = ["Disponible", "En circulation", "En réparation", "Hors service"];
 // Réservations qui occupent un véhicule sur leurs dates.

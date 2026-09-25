@@ -6,12 +6,14 @@ import {
   etat, jeton, MODELES, nomModele, STATUTS_VEHICULE, INTERVALLE_VIDANGE_KM, INTERVALLE_PNEUS_KM,
   majDisponibilite, alertesVehicule, reservationsVehicule, formateDate, nombre, mad, escHTML, escAttr,
   champ, valeursFormulaire, badge, blocAlertes, normaliserImmat, cleImmat, aujourdhuiISO, executer,
+  infosModele, barreFiltres, lierFiltres, contientTexte,
 } from "./commun.js";
 import { lireTableur, versDateISO } from "./lecteur-tableur.js";
 import { sousOnglets } from "./modeles.js";
 import { chargerDemo, supprimerDemo, demoSupprimable, estDemo } from "./demo.js";
 
 let filtre = "";
+const criteres = { texte: "", marque: "", modele: "", categorie: "", carburant: "" };
 let selection = null; // id du véhicule ouvert, ou "nouveau"
 let section = null;
 let importation = null; // null, ou { lignes analysées, bilan } pendant un import Excel
@@ -27,10 +29,6 @@ function rendre() {
   const { vehicules } = etat.donnees;
   const compte = (s) => vehicules.filter((v) => v.statut === s).length;
   const avecAlerte = vehicules.filter((v) => alertesVehicule(v).length).length;
-  const tries = [...vehicules].sort((a, b) =>
-    nomModele(a.modele).localeCompare(nomModele(b.modele)) || String(a.immatriculation).localeCompare(String(b.immatriculation)));
-  const visibles = filtre === "alertes" ? tries.filter((v) => alertesVehicule(v).length)
-    : filtre ? tries.filter((v) => v.statut === filtre) : tries;
 
   section.innerHTML = `
     <div class="entete"><h1>Flotte</h1><div class="actions-entete"><button class="bouton secondaire" id="ouvrir-demo">Démonstration</button><button class="bouton secondaire" id="importer-flotte">Importer depuis Excel</button><button class="bouton" id="ajouter-vehicule">+ Ajouter un véhicule</button></div></div>
@@ -44,12 +42,13 @@ function rendre() {
       <div class="kpi"><div class="valeur">${avecAlerte}</div><div class="libelle">À surveiller</div></div>
     </div>
     <div class="filtres">
-      ${[["", `Tous (${vehicules.length})`], ...STATUTS_VEHICULE.map((s) => [s, s]), ["alertes", "Alertes"]]
+      ${[["", `Tous (${vehicules.length})`], ...STATUTS_VEHICULE.map((s) => [s, `${s} (${compte(s)})`]), ["alertes", `Alertes (${avecAlerte})`]]
         .map(([v, l]) => `<button data-filtre="${escAttr(v)}" class="${v === filtre ? "actif" : ""}">${escHTML(l)}</button>`).join("")}
     </div>
+    ${vehicules.length ? barreFiltres(criteres, menusFiltres()) : ""}
+    <p class="compte-filtre" id="compte-flotte"></p>
     <div class="disposition">
-      <div class="liste">${visibles.length ? visibles.map(ligne).join("") :
-        `<div class="vide">${vehicules.length ? "Aucun véhicule pour ce filtre." : "Aucun véhicule saisi. Commencez par « Ajouter un véhicule » avec son immatriculation."}</div>`}</div>
+      <div class="liste" id="liste-flotte"></div>
       <div class="fiche" id="fiche-vehicule"></div>
     </div>`;
 
@@ -59,8 +58,57 @@ function rendre() {
   if (importation) rendreImport(section.querySelector("#zone-import"));
   if (demo) rendreDemo(section.querySelector("#zone-demo"));
   section.querySelectorAll("[data-filtre]").forEach((b) => b.addEventListener("click", () => { filtre = b.dataset.filtre; rendre(); }));
-  section.querySelectorAll(".liste .ligne").forEach((l) => l.addEventListener("click", () => { selection = l.dataset.id; rendre(); }));
+  const barre = section.querySelector(".barre-filtres");
+  if (barre) lierFiltres(barre, criteres, rendreListe);
+  rendreListe();
   rendreFiche();
+}
+
+function menusFiltres() {
+  const presents = [...new Set(etat.donnees.vehicules.map((v) => v.modele))];
+  const uniques = (f) => [...new Set(presents.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  return {
+    recherche: "Rechercher : immatriculation, modèle, couleur, châssis…",
+    menus: [
+      { nom: "marque", libelle: "Toutes les marques", options: uniques((id) => infosModele(id).marque) },
+      { nom: "modele", libelle: "Tous les modèles", options: presents.filter((id) => !criteres.marque || infosModele(id).marque === criteres.marque)
+        .map((id) => [id, nomModele(id)]).sort((a, b) => a[1].localeCompare(b[1])) },
+      { nom: "categorie", libelle: "Toutes les catégories", options: uniques((id) => infosModele(id).type) },
+      { nom: "carburant", libelle: "Tous carburants", options: [...new Set(etat.donnees.vehicules.map((v) => v.carburant).filter(Boolean))].sort() },
+    ],
+  };
+}
+
+function vehiculesFiltres() {
+  return etat.donnees.vehicules.filter((v) => {
+    const i = infosModele(v.modele);
+    if (filtre === "alertes" ? !alertesVehicule(v).length : filtre && v.statut !== filtre) return false;
+    if (criteres.marque && i.marque !== criteres.marque) return false;
+    if (criteres.modele && v.modele !== criteres.modele) return false;
+    if (criteres.categorie && i.type !== criteres.categorie) return false;
+    if (criteres.carburant && v.carburant !== criteres.carburant) return false;
+    return contientTexte(criteres.texte, v.immatriculation, nomModele(v.modele), v.couleur, v.chassis, v.notes, v.annee, i.gamme);
+  }).sort((a, b) => nomModele(a.modele).localeCompare(nomModele(b.modele)) || String(a.immatriculation).localeCompare(String(b.immatriculation)));
+}
+
+// Ne redessine que la liste : la saisie dans la recherche garde le curseur.
+function rendreListe() {
+  const liste = section.querySelector("#liste-flotte");
+  if (!liste) return;
+  const total = etat.donnees.vehicules.length;
+  const visibles = vehiculesFiltres();
+  liste.innerHTML = visibles.length ? visibles.map(ligne).join("")
+    : `<div class="vide">${total ? "Aucun véhicule ne correspond à ces filtres." : "Aucun véhicule saisi. Commencez par « Ajouter un véhicule » avec son immatriculation."}</div>`;
+  liste.querySelectorAll(".ligne").forEach((l) => l.addEventListener("click", () => { selection = l.dataset.id; rendre(); }));
+  const compte = section.querySelector("#compte-flotte");
+  compte.textContent = total && visibles.length !== total ? `${visibles.length} véhicule${visibles.length > 1 ? "s" : ""} sur ${total}` : "";
+  // la liste « Tous les modèles » suit la marque choisie
+  const menuModele = section.querySelector('select[data-critere="modele"]');
+  if (menuModele) {
+    const options = menusFiltres().menus[1].options;
+    if (criteres.modele && !options.some(([id]) => id === criteres.modele)) criteres.modele = "";
+    menuModele.innerHTML = `<option value="">Tous les modèles</option>` + options.map(([id, nom]) => `<option value="${escAttr(id)}"${id === criteres.modele ? " selected" : ""}>${escHTML(nom)}</option>`).join("");
+  }
 }
 
 function ligne(v) {
