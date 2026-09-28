@@ -6,6 +6,7 @@ import {
   etat, jeton, cleClient, lienWhatsApp, formateDate, mad, escHTML, escAttr, champ, valeursFormulaire,
   badge, executer, nomModele,
 } from "./commun.js";
+import { encoursClient, solde, DELAI_PAIEMENT_JOURS } from "./paiements.js";
 
 const CHAMPS_IDENTITE = ["nom", "prenom", "telephone", "email", "adresse", "ville", "pays", "nationalite", "dateNaissance",
   "typePiece", "numeroPiece", "expirationPiece", "numeroPermis", "delivrancePermis"];
@@ -71,6 +72,7 @@ function rendre() {
   const q = recherche.toLowerCase().replace(/\s+/g, "");
   let visibles = tous;
   if (filtre === "fiche") visibles = visibles.filter((e) => !e.fiche);
+  if (filtre === "compte") visibles = visibles.filter((e) => e.fiche && e.fiche.enCompte);
   if (filtre === "noire") visibles = visibles.filter((e) => e.fiche && e.fiche.listeNoire);
   if (q) visibles = visibles.filter((e) => (e.nom + e.telephone + e.cle + (e.fiche?.email || "") + (e.fiche?.numeroPiece || "")).toLowerCase().replace(/\s+/g, "").includes(q));
   const mois = new Date().toISOString().slice(0, 7);
@@ -84,7 +86,7 @@ function rendre() {
     </div>
     <div class="filtres">
       <input type="search" id="recherche" placeholder="Nom, téléphone, CIN…" value="${escAttr(recherche)}">
-      ${[["", "Tous"], ["fiche", "Sans fiche"], ["noire", "Liste noire"]].map(([v, l]) => `<button data-filtre="${v}" class="${v === filtre ? "actif" : ""}">${l}</button>`).join("")}
+      ${[["", "Tous"], ["compte", "En compte"], ["fiche", "Sans fiche"], ["noire", "Liste noire"]].map(([v, l]) => `<button data-filtre="${v}" class="${v === filtre ? "actif" : ""}">${l}</button>`).join("")}
     </div>
     <div class="disposition">
       <div class="liste">${visibles.length ? visibles.map((e) => ligne(e)).join("") : '<div class="vide">Aucun client.</div>'}</div>
@@ -112,7 +114,7 @@ function ligne(e) {
         <div class="vehicule">${escHTML(e.nom || "Nom inconnu")}</div>
         <div class="dates">${e.reservations.length} location${e.reservations.length > 1 ? "s" : ""}${e.derniere ? " · dernière le " + formateDate(e.derniere.slice(0, 10)) : ""}${e.ca ? " · " + mad(e.ca) : ""}</div>
       </div>
-      ${e.fiche && e.fiche.listeNoire ? badge("Liste noire") : !e.fiche ? badge("Sans fiche") : ""}
+      ${e.fiche && e.fiche.listeNoire ? badge("Liste noire") : !e.fiche ? badge("Sans fiche") : e.fiche.enCompte ? badge("En compte") : ""}
     </div>`;
 }
 
@@ -127,6 +129,7 @@ async function rendreFiche(tous) {
     <h2>${escHTML(e.nom || "Nom inconnu")}</h2>
     <div class="ref">${escHTML(e.telephone)}${c && c.email ? " · " + escHTML(c.email) : ""}</div>
     <a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(e.telephone, "Bonjour, ici Malysia Car Pro. "))}">Écrire sur WhatsApp</a>
+    ${paiementsClient(e)}
     <h3 class="sous-titre">Locations</h3>
     ${e.reservations.length ? `<ul class="mini-liste">${e.reservations.map((r) => `<li><a href="#reservations/${escAttr(r.id)}">${escHTML(r.vehiculeNom || nomModele(r.vehicule))} · ${formateDate(r.depart)}</a> ${badge(r.statut)}</li>`).join("")}</ul>` : '<p class="aide">Aucune location.</p>'}
     <h3 class="sous-titre">Factures</h3>
@@ -146,6 +149,17 @@ async function rendreFiche(tous) {
     }
   }
   formulaire(zone.querySelector("#zone-form"), c, proposition);
+}
+
+function paiementsClient(e) {
+  const c = e.fiche;
+  const du = e.reservations.filter((r) => ["En cours", "Terminée"].includes(r.statut)).reduce((s, r) => s + Math.max(0, solde(r)), 0);
+  if (!(c && c.enCompte) && !du) return "";
+  const plafond = c && Number(c.plafondEncours);
+  return `<div class="champs">
+      <div><span>Reste dû</span>${mad(c && c.enCompte ? encoursClient(e.telephone) : du)}</div>
+      ${c && c.enCompte ? `<div><span>Compte</span>${plafond ? "plafond " + mad(plafond) : "sans plafond"}, ${Number(c.delaiPaiement) || DELAI_PAIEMENT_JOURS} jours</div>` : ""}
+    </div>`;
 }
 
 function formulaire(zone, c, proposition) {
@@ -168,6 +182,9 @@ function formulaire(zone, c, proposition) {
       ${champ({ nom: "entreprise", libelle: "Société (client pro)", valeur: d.entreprise })}
       ${champ({ nom: "ice", libelle: "ICE de la société", valeur: d.ice })}
       ${champ({ nom: "notes", libelle: "Notes internes", valeur: d.notes, type: "textarea", large: true })}
+      <label class="case large"><input type="checkbox" name="enCompte" ${d.enCompte ? "checked" : ""}> Client en compte : peut recevoir un véhicule sans payer d'avance</label>
+      ${champ({ nom: "plafondEncours", libelle: "Plafond d'encours (MAD, vide = sans limite)", valeur: d.plafondEncours, type: "number", attrs: 'min="0" step="100"' })}
+      ${champ({ nom: "delaiPaiement", libelle: "Délai de paiement (jours)", valeur: d.delaiPaiement, type: "number", attrs: `min="0" max="120" placeholder="${DELAI_PAIEMENT_JOURS}"` })}
       <label class="case large"><input type="checkbox" name="listeNoire" ${d.listeNoire ? "checked" : ""}> Liste noire (ne plus louer à ce client)</label>
       ${champ({ nom: "motifListeNoire", libelle: "Motif", valeur: d.motifListeNoire, large: true })}
       <button class="action large" type="submit">${c ? "Enregistrer" : "Créer la fiche"}</button>

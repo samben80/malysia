@@ -212,6 +212,13 @@ publier une dans ce dépôt s'il en apparaît une plus tard pour un usage futur.
 - Clients (`clients/{téléphone}`) : fiche créée automatiquement depuis le
   dossier à la génération du contrat, historique des locations et factures,
   liste noire.
+- Paiements (`reservations/{id}.paiements`, `prixTotal`, `supplements`) : le
+  montant dû est celui du contrat, plus les suppléments saisis au retour
+  (kilomètres, retard, frais). Une location en cours ou terminée non soldée
+  est due (écran « Paiements »). Les clés ne se remettent qu'une fois la
+  location réglée, sauf pour un client en compte (`clients/{tél}.enCompte`,
+  `plafondEncours`, `delaiPaiement`). Un paiement saisi sur la réservation ou
+  sur sa facture est noté des deux côtés.
 - Facturation (`factures/F-AAAA-NNNN`) : numérotation continue, TVA 20 %,
   paiements partiels, impression PDF. Une facture ne se supprime pas, elle
   s'annule.

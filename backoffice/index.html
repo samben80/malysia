@@ -172,6 +172,11 @@ h2.immat{font-family:'IBM Plex Mono',monospace;font-size:18px}
 .barre-filtres input[type=search]{flex:1 1 260px;min-width:0;border:1px solid var(--filet);padding:9px 12px;font:inherit;font-size:13px;background:var(--surface);color:var(--encre)}
 .barre-filtres select{flex:0 1 190px;min-width:0;border:1px solid var(--filet);padding:9px 10px;font:inherit;font-size:13px;background:var(--surface);color:var(--encre)}
 .lien-reinit{background:none;border:0;color:var(--accent);font-size:12px;text-decoration:underline;padding:6px}
+.tableau.montants{margin:6px 0 10px}
+.tableau.montants td:last-child{text-align:right;white-space:nowrap}
+.tableau.montants tr.reste-du td{color:var(--negatif)}
+details.petit{margin-top:10px;font-size:13px}
+details.petit summary{cursor:pointer;color:var(--accent)}
 .compte-filtre{margin:0 0 10px;font-size:12.5px;color:var(--texte2)}
 .compte-filtre:empty{display:none}
 .ligne-alerte{padding:8px 0;border-bottom:1px solid var(--filet-clair);font-size:13px}
@@ -206,6 +211,9 @@ h2.immat{font-family:'IBM Plex Mono',monospace;font-size:18px}
 .statut[data-s="À importer"],.statut[data-s="Importée"]{background:rgba(74,122,86,.14);color:var(--positif)}
 .statut[data-s="Erreur"],.statut[data-s="Échec"]{background:rgba(160,69,63,.1);color:var(--negatif)}
 .statut[data-s="Ignorée"]{background:rgba(44,33,26,.07);color:var(--texte2)}
+.statut[data-s="Réglée"]{background:rgba(74,122,86,.14);color:var(--positif)}
+.statut[data-s="Acompte versé"],.statut[data-s="Trop-perçu"]{background:rgba(176,121,58,.13);color:var(--attente)}
+.statut[data-s="En compte"]{background:rgba(58,94,140,.12);color:#3A5E8C}
 
 /* ---- facture imprimée */
 .facture-imprimee{font-family:'Plus Jakarta Sans',sans-serif;color:#2C211A;font-size:12px;padding:14mm}
@@ -277,6 +285,7 @@ h2.immat{font-family:'IBM Plex Mono',monospace;font-size:18px}
       <a href="#flotte">Flotte <span class="badge" id="nb-flotte"></span></a>
       <a href="#maintenance">Maintenance <span class="badge" id="nb-maintenance"></span></a>
       <a href="#clients">Clients <span class="badge"></span></a>
+      <a href="#paiements">Paiements <span class="badge" id="nb-paiements"></span></a>
       <a href="#facturation">Facturation <span class="badge" id="nb-factures"></span></a>
     </nav>
     <div class="qui">
@@ -321,6 +330,7 @@ h2.immat{font-family:'IBM Plex Mono',monospace;font-size:18px}
     <section data-vue="modeles" hidden></section>
     <section data-vue="maintenance" hidden></section>
     <section data-vue="clients" hidden></section>
+    <section data-vue="paiements" hidden></section>
     <section data-vue="facturation" hidden></section>
   </main>
 </div>

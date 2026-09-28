@@ -9,13 +9,16 @@ import { SOCIETE, FRAIS, conditionsGenerales } from "../assets/contrat-modele.js
 import {
   etat, jeton, chargerTout, majDisponibilite, nomModele, MODELES, STATUTS_ACTIFS, chevauche, alertesVehicule,
   cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO, messageErreur,
-  estDemandeGroupe, correspondDemande,
+  estDemandeGroupe, correspondDemande, mad,
 } from "./commun.js";
 import { afficherFlotte } from "./flotte.js";
 import { afficherModeles } from "./modeles.js";
 import { afficherMaintenance } from "./maintenance.js";
 import { afficherClients, ficheClient, nomClient, majClientDepuisDossier } from "./clients.js";
 import { afficherFacturation } from "./facturation.js";
+import {
+  afficherPaiements, nombreImpayes, renderBlocPaiement, autorisationLivraison, joursLocation, majMontantLocation, solde,
+} from "./paiements.js";
 
 const CLE_SESSION = "malysia_bo_session";
 const PIECES = [
@@ -118,6 +121,7 @@ const ECRANS = {
   maintenance: afficherMaintenance,
   clients: afficherClients,
   facturation: afficherFacturation,
+  paiements: afficherPaiements,
 };
 
 function router() {
@@ -146,6 +150,7 @@ function majBadges() {
   poser("nb-flotte", d.vehicules.filter((v) => alertesVehicule(v).length).length);
   poser("nb-maintenance", d.maintenance.filter((m) => m.statut !== "Terminée").length);
   poser("nb-factures", d.factures.filter((f) => f.statut === "À encaisser" || f.statut === "Partiellement payée").length);
+  poser("nb-paiements", nombreImpayes());
 }
 
 // ---- réservations
@@ -193,7 +198,7 @@ function renderListe() {
       <div>
         <div class="ref">${r.id.slice(0, 8).toUpperCase()} · ${escHTML(r.formule || "—")}${r.immatriculation ? ` · <span class="immat">${escHTML(r.immatriculation)}</span>` : ""}</div>
         <div class="vehicule">${escHTML(r.vehiculeNom || "Véhicule non précisé")}${client ? ` <small>· ${escHTML(client)}</small>` : ""}</div>
-        <div class="dates">${formateDate(r.depart)} → ${formateDate(r.retour)}</div>
+        <div class="dates">${formateDate(r.depart)} → ${formateDate(r.retour)}${["En cours", "Terminée"].includes(r.statut) && solde(r) > 0.005 ? ` · <b class="txt-alerte">reste ${escHTML(mad(solde(r)))}</b>` : ""}</div>
       </div>
       ${badge(r.statut)}
     `;
@@ -208,7 +213,7 @@ function renderFiche() {
     ficheEl.innerHTML = '<div class="vide">Sélectionnez une demande dans la liste.</div>';
     return;
   }
-  const { libelle, aide, prochain } = actionPour(r.statut);
+  const { libelle, aide, prochain } = actionPour(r);
   const client = ficheClient(r.telephone);
   const cle = cleClient(r.telephone);
   const avantRemise = ["Confirmée", "Payée", "Prête à livrer"].includes(r.statut);
@@ -234,6 +239,7 @@ function renderFiche() {
       ? `<button class="action" id="bouton-action">${libelle}</button><p class="aide">${aide}</p>`
       : `<p class="aide">${aide}</p>`}
     <p id="etat-action"></p>
+    ${r.statut !== "Annulée" ? '<div class="bloc" id="bloc-paiement"></div>' : ""}
     ${avantRemise ? '<div class="bloc" id="bloc-remise"></div>' : ""}
     ${r.statut === "En cours" ? '<div class="bloc" id="bloc-retour"></div>' : ""}
     ${r.statut !== "À confirmer" && r.statut !== "Annulée" && r.telephone
@@ -249,6 +255,7 @@ function renderFiche() {
     document.getElementById("bouton-action").addEventListener("click", () => appliquerAction(r, prochain));
   }
   if (STATUTS_ACTIFS.includes(r.statut) || r.statut === "À confirmer") renderAttribution(r);
+  if (r.statut !== "Annulée") renderBlocPaiement(document.getElementById("bloc-paiement"), r, render);
   if (avantRemise) renderRemise(r);
   if (r.statut === "En cours") renderRetour(r);
   if (annulable) document.getElementById("annuler-reservation").addEventListener("click", () => annuler(r));
@@ -340,7 +347,13 @@ function renderRemise(r) {
     bloc.innerHTML = '<h3>Remise du véhicule</h3><p class="aide">Attribuez d\'abord un véhicule (immatriculation) pour pouvoir le remettre au client.</p>';
     return;
   }
+  const autorisation = autorisationLivraison(r);
+  if (!autorisation.ok) {
+    bloc.innerHTML = `<h3>Remise du véhicule</h3><p class="alerte" id="blocage-remise">${escHTML(autorisation.motif)}</p>`;
+    return;
+  }
   bloc.innerHTML = `<h3>Remise du véhicule</h3>
+    ${autorisation.compte ? `<p class="alerte attention">${escHTML(autorisation.motif)}</p>` : ""}
     <form class="formulaire" id="form-remise">
       <label>Kilométrage au départ<input name="km" type="number" min="0" required value="${escAttr(r.kmDepart ?? v.kmActuel ?? "")}"></label>
       <button class="action" type="submit">Remettre ${escHTML(v.immatriculation)} au client</button>
@@ -351,7 +364,9 @@ function renderRemise(r) {
     ev.preventDefault();
     const km = Number(ev.target.elements.km.value);
     await ecrire("etat-remise", async () => {
-      const maj = { statut: "En cours", kmDepart: km, remiseLe: new Date() };
+      const controle = autorisationLivraison(r); // revérifié au dernier moment
+      if (!controle.ok) throw new Error(controle.motif);
+      const maj = { statut: "En cours", kmDepart: km, remiseLe: new Date(), livraisonSansPaiement: !!controle.compte };
       await corrigerDocument("reservations", r.id, maj, jeton());
       Object.assign(r, maj, { remiseLe: maj.remiseLe.toISOString() });
       await corrigerDocument("vehicules", v.id, { statut: "En circulation", kmActuel: km, disponibleLe: "" }, jeton());
@@ -370,25 +385,43 @@ function renderRetour(r) {
   const v = etat.donnees.vehicules.find((x) => x.id === r.vehiculeAttribue);
   const jours = joursLocation(r);
   const tarif = MODELES[r.vehicule] || {};
+  const kmSup = tarif.kmSup || 3;
+  // retard au-delà de la tolérance du contrat : chaque jour entamé est dû
+  const retardMs = Date.now() - new Date(r.retour).getTime() - FRAIS.toleranceRetardHeures * 3600000;
+  const joursRetard = Number.isFinite(retardMs) && retardMs > 0 ? Math.ceil(retardMs / 86400000) : 0;
+  const prixJour = tarif.prixJour || Math.round((Number(r.prixTotal) || 0) / jours) || 0;
   bloc.innerHTML = `<h3>Retour du véhicule</h3>
     <form class="formulaire" id="form-retour">
       <label>Kilométrage au retour<input name="km" type="number" min="${escAttr(r.kmDepart || 0)}" required></label>
-      <button class="action" type="submit">Enregistrer le retour</button>
       <p class="aide large" id="calcul-km">Inclus : ${nombre(FRAIS.kmInclusParJour * jours)} km (${jours} j × ${FRAIS.kmInclusParJour} km).</p>
+      <label>Supplément kilométrique (MAD)<input name="supKm" type="number" min="0" step="0.01" value="0"></label>
+      <label>Retard${joursRetard ? ` (${joursRetard} j × ${nombre(prixJour)} MAD)` : ""} (MAD)<input name="supRetard" type="number" min="0" step="0.01" value="${joursRetard * prixJour}"></label>
+      <label>Autres frais (MAD)<input name="autresFrais" type="number" min="0" step="0.01" value="0"></label>
+      <label>Motif des autres frais<input name="motifFrais" placeholder="carburant, nettoyage, dommage…"></label>
+      <p class="aide large">Ces montants s'ajoutent à ce que doit le client (bloc Paiement) et sont repris dans la facture.</p>
+      <button class="action large" type="submit">Enregistrer le retour</button>
       <p class="etat large" id="etat-retour"></p>
     </form>`;
   const form = document.getElementById("form-retour");
+  let exces = 0;
   form.elements.km.addEventListener("input", () => {
     const parcourus = Number(form.elements.km.value) - Number(r.kmDepart || 0);
-    const exces = parcourus - FRAIS.kmInclusParJour * jours;
+    exces = Math.max(0, parcourus - FRAIS.kmInclusParJour * jours);
     document.getElementById("calcul-km").textContent = `${nombre(parcourus)} km parcourus, ${nombre(FRAIS.kmInclusParJour * jours)} inclus.` +
-      (exces > 0 ? ` Supplément : ${nombre(exces)} km × ${tarif.kmSup || 3} MAD = ${nombre(exces * (tarif.kmSup || 3))} MAD (repris dans la facture).` : " Pas de supplément.");
+      (exces > 0 ? ` Supplément : ${nombre(exces)} km × ${kmSup} MAD = ${nombre(exces * kmSup)} MAD.` : " Pas de supplément.");
+    form.elements.supKm.value = exces * kmSup;
   });
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const km = Number(form.elements.km.value);
+    const f = form.elements;
+    const supplements = [
+      Number(f.supKm.value) > 0 && { libelle: exces > 0 ? `Kilomètres supplémentaires (${nombre(exces)} km × ${kmSup} MAD)` : "Kilomètres supplémentaires", montant: Number(f.supKm.value), type: "km", quantite: exces, prixUnitaire: kmSup },
+      Number(f.supRetard.value) > 0 && { libelle: joursRetard ? `Retard de restitution (${joursRetard} jour${joursRetard > 1 ? "s" : ""})` : "Retard de restitution", montant: Number(f.supRetard.value), type: "retard" },
+      Number(f.autresFrais.value) > 0 && { libelle: f.motifFrais.value.trim() || "Frais", montant: Number(f.autresFrais.value), type: "frais" },
+    ].filter(Boolean);
     await ecrire("etat-retour", async () => {
-      const maj = { statut: "Terminée", kmRetour: km, retourLe: new Date() };
+      const maj = { statut: "Terminée", kmRetour: km, retourLe: new Date(), supplements: [...(r.supplements || []), ...supplements] };
       await corrigerDocument("reservations", r.id, maj, jeton());
       Object.assign(r, maj, { retourLe: maj.retourLe.toISOString() });
       if (v) {
@@ -505,11 +538,6 @@ async function renderDossier(r) {
 
 // ---- contrat : généré depuis la réservation et le dossier, partagé au client par lien (contrat.html)
 
-function joursLocation(r) {
-  const ms = new Date(r.retour) - new Date(r.depart);
-  return Number.isFinite(ms) ? Math.max(1, Math.ceil(ms / 86400000)) : 1;
-}
-
 function lienContrat(jeton) {
   return new URL(`../contrat.html?c=${jeton}`, location.href).href;
 }
@@ -594,9 +622,11 @@ async function enregistrerContrat(r, fiche, existant, form) {
       await corrigerDocument("reservations", r.id, { contrat: nouveau }, jeton());
       r.contrat = nouveau;
     }
+    // le prix du contrat devient le montant dû par le client
+    if (contrat.location.prixTotal !== "" && Number(contrat.location.prixTotal) !== Number(r.prixTotal)) await majMontantLocation(r, contrat.location.prixTotal);
     // la fiche client se complète avec le dossier (sans bloquer le contrat si elle échoue)
     await majClientDepuisDossier(r.telephone, fiche).catch(() => {});
-    renderContrat(r, fiche);
+    render();
   } catch (e) {
     bouton.disabled = false;
     etatEl.className = "large erreur";
@@ -661,14 +691,15 @@ function messageConfirmation(r) {
     ` est confirmée. À bientôt !`;
 }
 
-function actionPour(statut) {
-  switch (statut) {
+function actionPour(r) {
+  switch (r.statut) {
     case "À confirmer":
       return { libelle: "Confirmer la réservation", prochain: "Confirmée",
         aide: "Bloque ces dates sur le site quand tous les véhicules du modèle sont pris, et passe la demande en confirmée. Pensez à rappeler le client." };
     case "Confirmée":
-      return { libelle: "Marquer payée", prochain: "Payée",
-        aide: "À utiliser une fois le paiement et la caution encaissés." };
+      return autorisationLivraison(r).compte
+        ? { libelle: "Marquer prête à livrer", prochain: "Prête à livrer", aide: "Client en compte : il peut partir sans payer d'avance." }
+        : { libelle: "", prochain: null, aide: "Encaissez le paiement ci-dessous : la réservation passe « Payée » dès que le montant est réglé." };
     case "Payée":
       return { libelle: "Marquer prête à livrer", prochain: "Prête à livrer",
         aide: "Le véhicule est préparé. Le contrat se signe à la remise du véhicule." };

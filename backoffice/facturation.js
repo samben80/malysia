@@ -8,9 +8,9 @@ import {
   badge, executer, aujourdhuiISO, enLettres,
 } from "./commun.js";
 import { ficheClient, nomClient } from "./clients.js";
+import { enregistrerPaiement, statutFacture, MODES_PAIEMENT } from "./paiements.js";
 
 const TAUX_TVA = 20;
-const MODES_PAIEMENT = ["Carte bancaire (CMI)", "Virement", "Espèces", "Chèque"];
 const arrondi = (n) => Math.round(Number(n || 0) * 100) / 100;
 
 let filtre = "";
@@ -28,12 +28,7 @@ export function afficherFacturation(el, param, param2) {
 const paye = (f) => (f.paiements || []).reduce((s, p) => s + (Number(p.montant) || 0), 0);
 const reste = (f) => (f.statut === "Annulée" ? 0 : arrondi(Number(f.totalTTC) - paye(f)));
 
-function statutPaiement(f) {
-  if (f.statut === "Annulée") return "Annulée";
-  const p = paye(f);
-  if (p >= Number(f.totalTTC) - 0.005) return "Payée";
-  return p > 0 ? "Partiellement payée" : "À encaisser";
-}
+const statutPaiement = statutFacture;
 
 function rendre() {
   const { factures } = etat.donnees;
@@ -120,6 +115,9 @@ function rendreFiche() {
 
 async function ajouterPaiement(f, form) {
   const { montant, date, mode } = valeursFormulaire(form);
+  // facture d'une réservation : le paiement est aussi noté sur la réservation
+  const r = f.reservationId && etat.donnees.reservations.find((x) => x.id === f.reservationId && x.facture === f.id);
+  if (r) return executer(form.querySelector("#etat-paiement"), rendre, () => enregistrerPaiement(r, { montant, date, mode }));
   const paiements = [...(f.paiements || []), { montant: arrondi(montant), date, mode }];
   const suivant = { ...f, paiements };
   const maj = { paiements, statut: statutPaiement(suivant) };
@@ -151,7 +149,7 @@ async function annulerFacture(f, etatEl) {
 async function propositionDepuisReservation(r) {
   const tarif = MODELES[r.vehicule] || {};
   const jours = Math.max(1, Math.ceil((new Date(r.retour) - new Date(r.depart)) / 86400000) || 1);
-  let prixTotal = tarif.prixJour ? tarif.prixJour * jours : 0;
+  let prixTotal = r.prixTotal !== undefined && r.prixTotal !== "" ? Number(r.prixTotal) : tarif.prixJour ? tarif.prixJour * jours : 0;
   let immat = r.immatriculation || "";
   let options = "";
   if (r.contrat) {
@@ -168,7 +166,12 @@ async function propositionDepuisReservation(r) {
   const lignes = tarif.prixJour && prixTotal === tarif.prixJour * jours
     ? [{ designation: libelle, quantite: jours, prixUnitaire: tarif.prixJour }]
     : [{ designation: `${libelle} (${jours} jour${jours > 1 ? "s" : ""})`, quantite: 1, prixUnitaire: prixTotal }];
-  if (r.kmDepart !== undefined && r.kmRetour !== undefined && r.kmDepart !== "" && r.kmRetour !== "") {
+  if (r.supplements) {
+    for (const s of r.supplements) {
+      lignes.push(s.type === "km" && s.quantite ? { designation: `Kilomètres supplémentaires (au-delà de ${FRAIS.kmInclusParJour} km/jour)`, quantite: s.quantite, prixUnitaire: s.prixUnitaire }
+        : { designation: s.libelle, quantite: 1, prixUnitaire: Number(s.montant) || 0 });
+    }
+  } else if (r.kmDepart !== undefined && r.kmRetour !== undefined && r.kmDepart !== "" && r.kmRetour !== "") {
     const exces = Number(r.kmRetour) - Number(r.kmDepart) - FRAIS.kmInclusParJour * jours;
     if (exces > 0) lignes.push({ designation: `Kilomètres supplémentaires (au-delà de ${FRAIS.kmInclusParJour} km/jour)`, quantite: exces, prixUnitaire: tarif.kmSup || 3 });
   }
@@ -254,11 +257,13 @@ async function emettre(form, lignes, r) {
     lignes: lignesValides,
     tauxTVA: TAUX_TVA,
     ...t,
-    paiements: [],
+    // acomptes et paiements déjà reçus sur la réservation
+    paiements: r ? (r.paiements || []).map((p) => ({ montant: p.montant, date: p.date, mode: p.mode || "" })) : [],
     statut: "À encaisser",
     societe: { ...SOCIETE },
     creeLe: new Date(),
   };
+  donnees.statut = statutFacture(donnees);
   await executer(etatEl, rendre, async () => {
     // Numérotation continue par année : on prend le numéro suivant et, si un
     // autre poste l'a pris entre-temps (409), on passe au suivant.
