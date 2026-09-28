@@ -216,6 +216,14 @@ publier une dans ce dépôt s'il en apparaît une plus tard pour un usage futur.
   (`#reservations/statut/À livrer`, `#flotte/filtre/En réparation`,
   `#paiements/filtre/dus`…). Rien de nouveau dans la base, pas de changement
   des règles.
+- Statistiques (`backoffice/statistiques.js`) : contrats par statut
+  opérationnel (en attente, en préparation, livrée, retournée, annulée) et
+  financier (payé, partiellement payé, non payé, en compte, échéance
+  dépassée), filtres par période de départ, client, véhicule, modèle,
+  regroupement par client, véhicule, modèle, mois ou statut, export CSV pour
+  Excel et impression. Accessible aussi depuis les fiches client et véhicule
+  (`#statistiques/client/<clé>`, `#statistiques/vehicule/<id>`). Calculé à
+  partir des données déjà chargées, sans nouvelle collection.
 - Maintenance (`maintenance`) : vidanges, pneus, réparations, avec coût,
   kilométrage et immobilisation. Alertes de vidange (tous les 10 000 km par
   défaut), de pneus (40 000 km), d'échéances à 30 jours.

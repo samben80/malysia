@@ -131,6 +131,7 @@ async function rendreFiche(tous) {
     <a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(e.telephone, "Bonjour, ici Malysia Car Pro. "))}">Écrire sur WhatsApp</a>
     ${paiementsClient(e)}
     <h3 class="sous-titre">Locations</h3>
+    ${e.reservations.length ? `<p class="aide"><a href="#statistiques/client/${escAttr(encodeURIComponent(e.cle))}">Statistiques et relevé de ce client</a></p>` : ""}
     ${e.reservations.length ? `<ul class="mini-liste">${e.reservations.map((r) => `<li><a href="#reservations/${escAttr(r.id)}">${escHTML(r.vehiculeNom || nomModele(r.vehicule))} · ${formateDate(r.depart)}</a> ${badge(r.statut)}</li>`).join("")}</ul>` : '<p class="aide">Aucune location.</p>'}
     <h3 class="sous-titre">Factures</h3>
     ${e.factures.length ? `<ul class="mini-liste">${e.factures.map((f) => `<li><a href="#facturation/${escAttr(f.id)}">${escHTML(f.numero)} · ${mad(f.totalTTC)}</a> ${badge(f.statut)}</li>`).join("")}</ul>` : '<p class="aide">Aucune facture.</p>'}

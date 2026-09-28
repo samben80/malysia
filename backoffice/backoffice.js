@@ -12,6 +12,7 @@ import {
   estDemandeGroupe, correspondDemande, mad,
 } from "./commun.js";
 import { afficherTableau } from "./tableau.js";
+import { afficherStatistiques } from "./statistiques.js";
 import { afficherFlotte } from "./flotte.js";
 import { afficherModeles } from "./modeles.js";
 import { afficherMaintenance } from "./maintenance.js";
@@ -128,6 +129,7 @@ const ECRANS = {
   clients: afficherClients,
   facturation: afficherFacturation,
   paiements: afficherPaiements,
+  statistiques: afficherStatistiques,
 };
 
 function router() {

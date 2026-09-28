@@ -170,6 +170,7 @@ function rendreFiche() {
     ${v.notes ? `<p class="aide">${escHTML(v.notes)}</p>` : ""}
 
     <h3 class="sous-titre">Locations prévues</h3>
+    <p class="aide"><a href="#statistiques/vehicule/${escAttr(encodeURIComponent(v.id))}">Statistiques et historique des contrats de ce véhicule</a></p>
     ${locations.length ? `<ul class="mini-liste">${locations.map((r) => `<li><a href="#reservations/${escAttr(r.id)}">${formateDate(r.depart)} → ${formateDate(r.retour)}</a> ${badge(r.statut)}</li>`).join("")}</ul>`
       : '<p class="aide">Aucune location attribuée à ce véhicule.</p>'}
 

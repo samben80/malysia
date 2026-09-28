@@ -219,11 +219,11 @@ details.petit summary{cursor:pointer;color:var(--accent)}
 .kpis-tableau{margin-bottom:18px}
 .kpi.tuile{display:block;text-decoration:none;color:inherit;position:relative}
 .kpi.tuile:hover{background:var(--fond)}
-.kpi.tuile.t-attention{box-shadow:inset 0 3px 0 var(--attente)}
-.kpi.tuile.t-alerte{box-shadow:inset 0 3px 0 var(--negatif)}
-.kpi.tuile.t-alerte .valeur{color:var(--negatif)}
+.kpi.t-attention{box-shadow:inset 0 3px 0 var(--attente)}
+.kpi.t-alerte{box-shadow:inset 0 3px 0 var(--negatif)}
+.kpi.t-alerte .valeur{color:var(--negatif)}
 .kpi .detail{font-size:11.5px;color:var(--texte2);margin-top:6px}
-.kpi.tuile.t-alerte .detail{color:var(--negatif)}
+.kpi.t-alerte .detail{color:var(--negatif)}
 .flotte-barre{background:var(--surface);border:1px solid var(--filet);padding:14px 18px;margin-bottom:24px}
 .flotte-barre .barre{display:flex;gap:2px;height:14px}
 .flotte-barre .seg{display:block;min-width:6px}
@@ -256,6 +256,58 @@ details.petit summary{cursor:pointer;color:var(--accent)}
 .statut[data-f="alerte"],.statut[data-s="Expiré"]{background:rgba(160,69,63,.1);color:var(--negatif)}
 .statut[data-f="attention"]{background:rgba(176,121,58,.13);color:var(--attente)}
 @media (max-width:800px){.ligne-tb .statut{white-space:normal;text-align:right;max-width:45%}}
+
+/* ---- statistiques */
+.filtres-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,190px),1fr));gap:10px 12px;align-items:end;background:var(--surface);border:1px solid var(--filet);padding:14px 16px;margin-bottom:20px}
+.filtres-stats label{display:flex;flex-direction:column;gap:4px;min-width:0}
+.filtres-stats label.large{grid-column:span 2}
+.filtres-stats label span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2)}
+.filtres-stats select,.filtres-stats input{width:100%;min-width:0;border:1px solid var(--filet);padding:8px 9px;font:inherit;font-size:13px;background:var(--fond);color:var(--encre)}
+.filtres-stats .lien-reinit{justify-self:start}
+.grille-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:20px;margin-bottom:20px}
+.panneau-stats{background:var(--surface);border:1px solid var(--filet);padding:16px 18px;margin-bottom:20px;min-width:0}
+.grille-stats .panneau-stats{margin-bottom:0}
+.panneau-stats header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.panneau-stats h2{font-size:14px;letter-spacing:.04em}
+.panneau-stats header select{border:1px solid var(--filet);padding:7px 9px;font:inherit;font-size:13px;background:var(--fond);color:var(--encre)}
+.barres-stats{display:flex;flex-direction:column;gap:2px}
+.barre-stat{display:grid;grid-template-columns:minmax(120px,1.1fr) 2fr minmax(90px,auto);gap:12px;align-items:center;background:none;border:0;padding:8px 6px;text-align:left;color:var(--encre);font-size:13px}
+.barre-stat:hover{background:var(--fond)}
+.barre-stat.actif{background:var(--fond);box-shadow:inset 3px 0 0 var(--accent)}
+.barre-stat.estompe{opacity:.45}
+.barre-stat .lib small{display:block;color:var(--texte2);font-size:11.5px}
+.barre-stat .piste{height:12px;background:var(--filet-clair);display:block}
+.barre-stat .piste i{display:block;height:100%;background:var(--accent);border-radius:0 4px 4px 0;min-width:2px}
+.barre-stat .val{text-align:right;white-space:nowrap}
+.barre-stat .val small{display:block;color:var(--texte2);font-size:11.5px}
+.lien-echu{background:none;border:0;color:var(--negatif);font-size:12.5px;text-decoration:underline;padding:8px 6px 0}
+.defilement-x{overflow-x:auto;max-width:100%}
+.tableau.stats{margin:0;font-size:12.5px}
+.tableau.stats td:nth-child(n+2),.tableau.stats th:nth-child(n+2){text-align:right}
+.liste-stats td:nth-child(-n+3),.liste-stats th:nth-child(-n+3){text-align:left!important}
+.liste-stats td:nth-child(7),.liste-stats td:nth-child(8){text-align:left!important}
+.tableau.stats th[data-tri]{cursor:pointer;white-space:nowrap}
+.tableau.stats tr.cliquable{cursor:pointer}
+.tableau.stats tr.cliquable:hover td{background:var(--fond)}
+.tableau.stats tfoot td{font-weight:700;border-top:1px solid var(--filet);border-bottom:0}
+.mini-barre{display:block;height:4px;background:var(--filet-clair);margin-top:4px;max-width:220px}
+.mini-barre i{display:block;height:100%;background:var(--accent-clair)}
+@media (max-width:800px){
+  .filtres-stats label.large{grid-column:auto}
+  .kpis>.kpi:last-child:nth-child(odd){grid-column:1/-1}
+  .barre-stat{grid-template-columns:1fr auto;gap:4px 10px}
+  .barre-stat .piste{grid-column:1/-1;grid-row:2}
+}
+.stats-imprimees{padding:12mm;font-family:'Plus Jakarta Sans',sans-serif;color:#2C211A;font-size:10.5px}
+.stats-imprimees h1{font-family:Cinzel,serif;font-weight:500;font-size:20px;letter-spacing:.08em;margin:0 0 6px}
+.stats-imprimees h2{font-family:Cinzel,serif;font-weight:500;font-size:13px;margin:16px 0 6px}
+.stats-imprimees p{margin:0 0 6px;color:#6F5B4B}
+.stats-imprimees table{width:100%;border-collapse:collapse}
+.stats-imprimees th,.stats-imprimees td{border:1px solid #D9C8B4;padding:4px 5px;font-size:10px}
+.stats-imprimees th{background:#F4ECE1;text-transform:uppercase;letter-spacing:.05em;font-size:8.5px}
+.stats-imprimees tr{break-inside:avoid}
+.stats-imprimees .statut{padding:0;background:none!important;font-size:9px}
+.stats-imprimees .mini-barre{display:none}
 
 /* ---- facture imprimée */
 .facture-imprimee{font-family:'Plus Jakarta Sans',sans-serif;color:#2C211A;font-size:12px;padding:14mm}
@@ -330,6 +382,7 @@ details.petit summary{cursor:pointer;color:var(--accent)}
       <a href="#clients">Clients <span class="badge"></span></a>
       <a href="#paiements">Paiements <span class="badge" id="nb-paiements"></span></a>
       <a href="#facturation">Facturation <span class="badge" id="nb-factures"></span></a>
+      <a href="#statistiques">Statistiques <span class="badge"></span></a>
     </nav>
     <div class="qui">
       <span id="qui-connecte"></span>
@@ -377,6 +430,7 @@ details.petit summary{cursor:pointer;color:var(--accent)}
     <section data-vue="clients" hidden></section>
     <section data-vue="paiements" hidden></section>
     <section data-vue="facturation" hidden></section>
+    <section data-vue="statistiques" hidden></section>
   </main>
 </div>
 
