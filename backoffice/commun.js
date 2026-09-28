@@ -171,12 +171,15 @@ export function derniereIntervention(vehiculeId, type) {
     .sort((a, b) => String(b.date).localeCompare(String(a.date)) || (b.km || 0) - (a.km || 0))[0] || null;
 }
 
+// Documents administratifs d'un véhicule, avec leur date de fin de validité.
+export const DOCUMENTS_VEHICULE = [["assurance", "Assurance"], ["visiteTechnique", "Visite technique"], ["vignette", "Vignette"], ["autorisationCirculation", "Autorisation de circulation"]];
+
 export function alertesVehicule(v) {
   const alertes = [];
   if (v.statut === "Hors service") return alertes;
   const aujourdhui = aujourdhuiISO();
   const dans30j = decalerJours(aujourdhui, 30);
-  for (const [cle, libelle] of [["assurance", "Assurance"], ["visiteTechnique", "Visite technique"], ["vignette", "Vignette"]]) {
+  for (const [cle, libelle] of DOCUMENTS_VEHICULE) {
     const d = v[cle];
     if (!d) continue;
     if (d < aujourdhui) alertes.push({ niveau: "danger", texte: `${libelle} expirée depuis le ${formateDate(d)}` });

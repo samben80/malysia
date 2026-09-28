@@ -215,6 +215,48 @@ details.petit summary{cursor:pointer;color:var(--accent)}
 .statut[data-s="Acompte versé"],.statut[data-s="Trop-perçu"]{background:rgba(176,121,58,.13);color:var(--attente)}
 .statut[data-s="En compte"]{background:rgba(58,94,140,.12);color:#3A5E8C}
 
+/* ---- tableau de bord */
+.kpis-tableau{margin-bottom:18px}
+.kpi.tuile{display:block;text-decoration:none;color:inherit;position:relative}
+.kpi.tuile:hover{background:var(--fond)}
+.kpi.tuile.t-attention{box-shadow:inset 0 3px 0 var(--attente)}
+.kpi.tuile.t-alerte{box-shadow:inset 0 3px 0 var(--negatif)}
+.kpi.tuile.t-alerte .valeur{color:var(--negatif)}
+.kpi .detail{font-size:11.5px;color:var(--texte2);margin-top:6px}
+.kpi.tuile.t-alerte .detail{color:var(--negatif)}
+.flotte-barre{background:var(--surface);border:1px solid var(--filet);padding:14px 18px;margin-bottom:24px}
+.flotte-barre .barre{display:flex;gap:2px;height:14px}
+.flotte-barre .seg{display:block;min-width:6px}
+.flotte-barre .seg:first-child{border-radius:4px 0 0 4px}
+.flotte-barre .seg:last-child{border-radius:0 4px 4px 0}
+.flotte-barre .seg:only-child{border-radius:4px}
+.flotte-barre .seg:hover{opacity:.8}
+.flotte-barre .legende{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;font-size:12.5px;color:var(--texte2)}
+.flotte-barre .legende a{color:var(--texte2);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.flotte-barre .legende a:hover{color:var(--encre)}
+.flotte-barre .legende b{color:var(--encre)}
+.flotte-barre .legende span{margin-left:auto}
+.flotte-barre i{display:inline-block;width:10px;height:10px;border-radius:2px}
+.dispo{background:var(--positif)}.circulation{background:#3A5E8C}.reparation{background:var(--attente)}.hors{background:#B9AA9B}
+.grille-tableau{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:20px;align-items:start}
+.carte-tableau{background:var(--surface);border:1px solid var(--filet);padding:16px 18px 10px;min-width:0;scroll-margin-top:16px}
+.carte-tableau header{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.carte-tableau h2{font-size:14px;letter-spacing:.04em}
+.carte-tableau header a{font-size:12px;white-space:nowrap}
+.compteur{font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--fond);color:var(--encre);padding:2px 7px;margin-left:4px;vertical-align:2px}
+.compteur.zero{color:var(--texte2)}
+.ligne-tb{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--filet-clair);text-decoration:none;color:var(--encre);font-size:13.5px}
+.ligne-tb:hover{background:var(--fond)}
+.ligne-tb>span{min-width:0;overflow-wrap:anywhere}
+.ligne-tb small{color:var(--texte2);font-size:12px}
+.ligne-tb .statut{flex-shrink:0}
+.carte-tableau .rien{color:var(--texte2);font-size:13px;margin:8px 0 10px}
+.carte-tableau .plus,.carte-tableau .pied{font-size:12.5px;color:var(--texte2);margin:8px 0 6px}
+.carte-tableau .pied{font-weight:700;color:var(--encre);border-top:1px solid var(--filet);padding-top:8px}
+.statut[data-f="alerte"],.statut[data-s="Expiré"]{background:rgba(160,69,63,.1);color:var(--negatif)}
+.statut[data-f="attention"]{background:rgba(176,121,58,.13);color:var(--attente)}
+@media (max-width:800px){.ligne-tb .statut{white-space:normal;text-align:right;max-width:45%}}
+
 /* ---- facture imprimée */
 .facture-imprimee{font-family:'Plus Jakarta Sans',sans-serif;color:#2C211A;font-size:12px;padding:14mm}
 .fi-entete{display:flex;justify-content:space-between;gap:20px;border-bottom:2px solid #8A5236;padding-bottom:10px}
@@ -281,7 +323,8 @@ details.petit summary{cursor:pointer;color:var(--accent)}
       <span>MALYSIA CAR PRO<small>BACK-OFFICE</small></span>
     </div>
     <nav>
-      <a class="actif" href="#reservations">Réservations <span class="badge" id="nb-total"></span></a>
+      <a class="actif" href="#tableau">Tableau de bord</a>
+      <a href="#reservations">Réservations <span class="badge" id="nb-total"></span></a>
       <a href="#flotte">Flotte <span class="badge" id="nb-flotte"></span></a>
       <a href="#maintenance">Maintenance <span class="badge" id="nb-maintenance"></span></a>
       <a href="#clients">Clients <span class="badge"></span></a>
@@ -297,7 +340,8 @@ details.petit summary{cursor:pointer;color:var(--accent)}
 
   <main>
     <p id="bandeau-regles" hidden>Les nouvelles règles de sécurité ne sont pas encore collées dans la console Firebase : la flotte, la maintenance, les clients et la facturation restent vides et ne peuvent rien enregistrer d'ici là.</p>
-    <section data-vue="reservations">
+    <section data-vue="tableau"></section>
+    <section data-vue="reservations" hidden>
     <div class="entete">
       <h1>Réservations</h1>
       <span class="date" id="date-du-jour"></span>
@@ -313,6 +357,7 @@ details.petit summary{cursor:pointer;color:var(--accent)}
     <div class="filtres" id="filtres">
       <button class="actif" data-statut="">Toutes</button>
       <button data-statut="À confirmer">À confirmer</button>
+      <button data-statut="À livrer">À livrer</button>
       <button data-statut="Confirmée">Confirmée</button>
       <button data-statut="Payée">Payée</button>
       <button data-statut="Prête à livrer">Prête à livrer</button>

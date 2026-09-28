@@ -19,9 +19,10 @@ let section = null;
 let importation = null; // null, ou { lignes analysées, bilan } pendant un import Excel
 let demo = null; // null, ou { message } quand le panneau de la flotte de démonstration est ouvert
 
-export function afficherFlotte(el, param) {
+export function afficherFlotte(el, param, param2) {
   section = el;
-  if (param) selection = param;
+  if (param === "filtre") filtre = param2 || ""; // lien du tableau de bord : #flotte/filtre/En réparation
+  else if (param) selection = param;
   rendre();
 }
 
@@ -162,6 +163,7 @@ function rendreFiche() {
       <div><span>N° de châssis</span>${escHTML(v.chassis || "—")}</div>
       <div><span>Assurance jusqu'au</span>${formateDate(v.assurance)}</div>
       <div><span>Visite technique jusqu'au</span>${formateDate(v.visiteTechnique)}</div>
+      <div><span>Autorisation de circulation</span>${formateDate(v.autorisationCirculation)}</div>
       <div><span>Vignette jusqu'au</span>${formateDate(v.vignette)}</div>
       <div><span>Entretien cette année</span>${mad(coutAnnee)}</div>
     </div>
@@ -212,6 +214,7 @@ function formulaireVehicule(zone, v) {
       ${nouveau ? champ({ nom: "statut", libelle: "Statut", valeur: d.statut, options: STATUTS_VEHICULE }) : ""}
       ${champ({ nom: "assurance", libelle: "Assurance valable jusqu'au", valeur: d.assurance, type: "date" })}
       ${champ({ nom: "visiteTechnique", libelle: "Visite technique jusqu'au", valeur: d.visiteTechnique, type: "date" })}
+      ${champ({ nom: "autorisationCirculation", libelle: "Autorisation de circulation jusqu'au", valeur: d.autorisationCirculation, type: "date" })}
       ${champ({ nom: "vignette", libelle: "Vignette jusqu'au", valeur: d.vignette, type: "date" })}
       ${champ({ nom: "intervalleVidangeKm", libelle: "Vidange tous les (km)", valeur: d.intervalleVidangeKm, type: "number", attrs: 'min="1000" step="500"' })}
       ${champ({ nom: "intervallePneusKm", libelle: "Pneus tous les (km)", valeur: d.intervallePneusKm, type: "number", attrs: 'min="5000" step="1000"' })}
@@ -262,9 +265,9 @@ const COLONNES = [
   ["immatriculation", "immatriculation"], ["modele", "modele"], ["couleur", "couleur"], ["annee", "annee"],
   ["carburant", "carburant"], ["kilometrage", "kmActuel"], ["km", "kmActuel"], ["ndechassis", "chassis"], ["numerodechassis", "chassis"], ["chassis", "chassis"],
   ["vin", "chassis"], ["statut", "statut"], ["disponible", "disponibleLe"], ["assurance", "assurance"],
-  ["visite", "visiteTechnique"], ["vignette", "vignette"], ["vidange", "intervalleVidangeKm"], ["pneus", "intervallePneusKm"], ["notes", "notes"],
+  ["visite", "visiteTechnique"], ["vignette", "vignette"], ["autorisation", "autorisationCirculation"], ["vidange", "intervalleVidangeKm"], ["pneus", "intervallePneusKm"], ["notes", "notes"],
 ];
-const DATES = ["disponibleLe", "assurance", "visiteTechnique", "vignette"];
+const DATES = ["disponibleLe", "assurance", "visiteTechnique", "vignette", "autorisationCirculation"];
 const ENTIERS = ["annee", "kmActuel", "intervalleVidangeKm", "intervallePneusKm"];
 
 function trouverModele(valeur) {

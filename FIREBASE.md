@@ -206,6 +206,16 @@ publier une dans ce dépôt s'il en apparaît une plus tard pour un usage futur.
   supprimables d'un clic), plus les modèles Bentley Continental GTC,
   Bentayga, Flying Spur et Rolls-Royce Cullinan, masqués du site, avec une
   photo sous licence libre lue sur Wikimedia Commons par le navigateur.
+- Tableau de bord (écran d'accueil du back-office, `backoffice/tableau.js`) :
+  départs et retours du jour, demandes à confirmer, confirmées à livrer
+  (dont celles bloquées faute de paiement), contrats en cours et retours en
+  retard, contrats non réglés, répartition de la flotte par statut, véhicules
+  indisponibles, documents administratifs (assurance, visite technique,
+  vignette, autorisation de circulation) qui expirent sous 30 jours, vidanges
+  et pneus à prévoir. Chaque chiffre ouvre la liste déjà filtrée
+  (`#reservations/statut/À livrer`, `#flotte/filtre/En réparation`,
+  `#paiements/filtre/dus`…). Rien de nouveau dans la base, pas de changement
+  des règles.
 - Maintenance (`maintenance`) : vidanges, pneus, réparations, avec coût,
   kilométrage et immobilisation. Alertes de vidange (tous les 10 000 km par
   défaut), de pneus (40 000 km), d'échéances à 30 jours.

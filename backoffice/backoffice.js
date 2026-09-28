@@ -11,6 +11,7 @@ import {
   cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO, messageErreur,
   estDemandeGroupe, correspondDemande, mad,
 } from "./commun.js";
+import { afficherTableau } from "./tableau.js";
 import { afficherFlotte } from "./flotte.js";
 import { afficherModeles } from "./modeles.js";
 import { afficherMaintenance } from "./maintenance.js";
@@ -115,7 +116,12 @@ formConnexion.addEventListener("submit", async (ev) => {
 // ---- navigation entre les écrans (#reservations, #flotte/<id>, #facturation/nouvelle/<réservation>…)
 
 const ECRANS = {
-  reservations: (el, param) => { if (param) selectionId = param; render(); },
+  tableau: afficherTableau,
+  reservations: (el, param, param2) => {
+    if (param === "statut") choisirFiltre(param2 || "");
+    else if (param) selectionId = param;
+    render();
+  },
   flotte: afficherFlotte,
   modeles: afficherModeles,
   maintenance: afficherMaintenance,
@@ -127,7 +133,7 @@ const ECRANS = {
 function router() {
   if (!etat.session || !etat.pret) return; // données pas encore chargées : afficherApp rappellera router()
   const [nom, param, param2] = location.hash.replace(/^#/, "").split("/").map(decodeURIComponent);
-  const ecran = ECRANS[nom] ? nom : "reservations";
+  const ecran = ECRANS[nom] ? nom : "tableau";
   document.querySelectorAll("[data-vue]").forEach((s) => { s.hidden = s.dataset.vue !== ecran; });
   document.querySelectorAll("aside nav a").forEach((a) => a.classList.toggle("actif", a.getAttribute("href") === "#" + (ecran === "modeles" ? "flotte" : ecran)));
   ECRANS[ecran](document.querySelector(`[data-vue="${ecran}"]`), param, param2);
@@ -155,12 +161,18 @@ function majBadges() {
 
 // ---- réservations
 
+// « À livrer » regroupe les réservations confirmées dont le véhicule n'est pas encore parti.
+const A_LIVRER = ["Confirmée", "Payée", "Prête à livrer"];
+
+function choisirFiltre(statut) {
+  filtreActuel = statut;
+  filtresEl.querySelectorAll("button[data-statut]").forEach((x) => x.classList.toggle("actif", x.dataset.statut === statut));
+}
+
 filtresEl.addEventListener("click", (ev) => {
   const b = ev.target.closest("button[data-statut]");
   if (!b) return;
-  filtresEl.querySelectorAll("button").forEach((x) => x.classList.remove("actif"));
-  b.classList.add("actif");
-  filtreActuel = b.dataset.statut;
+  choisirFiltre(b.dataset.statut);
   render();
 });
 
@@ -184,7 +196,9 @@ function renderKpis() {
 
 function renderListe() {
   const reservations = etat.donnees.reservations;
-  const visibles = filtreActuel ? reservations.filter((r) => r.statut === filtreActuel) : reservations;
+  const visibles = !filtreActuel ? reservations
+    : filtreActuel === "À livrer" ? reservations.filter((r) => A_LIVRER.includes(r.statut))
+    : reservations.filter((r) => r.statut === filtreActuel);
   if (visibles.length === 0) {
     listeEl.innerHTML = '<div class="vide">Aucune demande pour ce filtre.</div>';
     return;

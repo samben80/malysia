@@ -176,8 +176,9 @@ let filtre = "dus";
 const criteres = { texte: "" };
 let section = null;
 
-export function afficherPaiements(el) {
+export function afficherPaiements(el, param, param2) {
   section = el;
+  if (param === "filtre") filtre = param2 || "";
   rendre();
 }
 

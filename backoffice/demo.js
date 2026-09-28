@@ -151,7 +151,7 @@ function genererVehicules() {
       vehicules.push({
         immatriculation, modele, couleur: choisir(couleurs), annee, carburant: MODELES[modele].carburant || "", kmActuel,
         chassis: `DEMO${String(annee).slice(2)}${String(n + 1).padStart(3, "0")}${Math.floor(alea() * 1e8).toString().padStart(8, "0")}`.slice(0, 17),
-        statut, disponibleLe, assurance, visiteTechnique, vignette: `${new Date().getFullYear() + (alea() < 0.95 ? 1 : 0)}-01-31`,
+        statut, disponibleLe, assurance, visiteTechnique, autorisationCirculation: n % 17 === 5 ? decalerJours(aujourdhui, 9) : decalerJours(aujourdhui, entre(90, 720)), vignette: `${new Date().getFullYear() + (alea() < 0.95 ? 1 : 0)}-01-31`,
         intervalleVidangeKm: prestige ? 15000 : 10000, intervallePneusKm: prestige ? 30000 : 40000,
         notes: "Véhicule fictif (flotte de démonstration).",
         _entretien: {
