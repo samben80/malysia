@@ -21,6 +21,10 @@
 - Mercedes Classe V — van, gamme groupe, 7 places, diesel, automatique — 1900
 - Renault Master 12 m3 — utilitaire, gamme transport, 3 places, diesel, manuelle — 550
 - Hyundai Tucson — SUV, gamme familial, 5 places, hybride, automatique — 750
+- Bentley Continental GTC — luxe & sport, gamme exception, 4 places, 2 portes, 2 valises, essence, automatique — 8500
+- Bentley Bentayga — SUV, gamme exception, 5 places, 5 portes, 4 valises, essence, automatique — 9000
+- Bentley Flying Spur — berline, gamme exception, 5 places, 4 portes, 3 valises, essence, automatique — 9500
+- Rolls-Royce Cullinan — SUV, gamme exception, 5 places, 5 portes, 4 valises, essence, automatique — 18000
 
 ## Offre entreprises
 - Longue durée 12 mois, dès 4900 MAD par mois
