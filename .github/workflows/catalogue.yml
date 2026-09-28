@@ -1,11 +1,13 @@
 # Met à jour la section « Notre flotte » du site à partir des modèles saisis
-# dans le back-office (onglet Flotte > Modèles). Tourne toutes les 15 minutes
-# et ne commite que s'il y a un changement.
+# dans le back-office (onglet Flotte > Modèles). Programmée toutes les 15
+# minutes, hors des quarts d'heure pleins que GitHub sature et saute souvent ;
+# GitHub peut malgré tout la retarder de plusieurs heures. Ne commite que s'il
+# y a un changement.
 name: Catalogue du site
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:

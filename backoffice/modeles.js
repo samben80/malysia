@@ -2,7 +2,7 @@
 // type, boîte, carburant, places, prix, photo). Les véhicules de l'onglet
 // « Véhicules » sont rattachés à un modèle. La page d'accueil du site est
 // régénérée à partir de ces fiches (outils/catalogue.mjs, lancé
-// automatiquement sur GitHub toutes les 15 minutes).
+// automatiquement par une tâche GitHub programmée, lancée avec retard par GitHub).
 import { creerDocument, corrigerDocument, lireDocument, supprimerDocument } from "../assets/firestore-rest.js";
 import {
   etat, jeton, synchroniserModeles, nombre, escHTML, escAttr, champ, valeursFormulaire, badge, executer,
@@ -26,12 +26,37 @@ const MODELES_INITIAUX = [
 let selection = null; // id du modèle, ou "nouveau"
 let section = null;
 let photoEnAttente = null; // { image, vignette } choisie mais pas encore enregistrée
+let surLeSite = null; // ids des modèles présents dans la page publique actuellement en ligne
+let luLe = 0;
+
+// La page publique est régénérée par une tâche GitHub : on lit la version en
+// ligne pour distinguer « Sur le site » de « Publication en attente ».
+async function lireSite() {
+  if (Date.now() - luLe < 60000) return;
+  luLe = Date.now();
+  try {
+    const html = await (await fetch("../index.html", { cache: "no-store" })).text();
+    const choix = html.split("choix-vehicule:debut")[1] || "";
+    surLeSite = new Set([...choix.matchAll(/value="([a-z0-9-]+)"/g)].map((x) => x[1]));
+  } catch { surLeSite = null; }
+}
+// Met à jour les mentions sans redessiner l'écran (un formulaire peut être en cours de saisie).
+function majEtatsSite() {
+  if (!section) return;
+  for (const m of etat.donnees.modeles) {
+    const cibles = [...section.querySelectorAll(`.ligne-modele[data-id="${CSS.escape(m.id)}"] .statut`)];
+    if (m.id === selection) { const b = section.querySelector("#fiche-modele > .statut"); if (b) cibles.push(b); }
+    for (const b of cibles) { b.textContent = etatSite(m); b.dataset.s = etatSite(m); }
+  }
+}
+const etatSite = (m) => (m.visible === false ? "Masqué" : surLeSite && !surLeSite.has(m.id) ? "Publication en attente" : "Sur le site");
 
 export function afficherModeles(el, param) {
   section = el;
   if (param) selection = param;
   photoEnAttente = null;
   rendre();
+  lireSite().then(majEtatsSite);
 }
 
 export function sousOnglets(actif) {
@@ -60,7 +85,7 @@ function rendre() {
       <button class="bouton" id="publier-masques">Afficher ${masques.length > 1 ? `les ${masques.length} modèles` : "ce modèle"} sur le site</button>
       <p class="etat" id="etat-publication"></p>
     </div>` : ""}
-    <p class="aide-ecran">Ce que vous enregistrez ici s'affiche sur le site dans la section « Notre flotte », environ 15 à 30 minutes après l'enregistrement.</p>
+    <p class="aide-ecran">Ce que vous enregistrez ici part sur le site (section « Notre flotte » et choix du véhicule) lors de la prochaine mise à jour automatique. GitHub la lance en général dans l'heure, parfois après quelques heures. Tant qu'elle n'est pas passée, le modèle porte la mention « Publication en attente ».</p>
     <div class="disposition">
       <div class="liste">${modeles.length ? modeles.map((m) => `
         <div class="ligne ligne-modele${m.id === selection ? " selectionnee" : ""}" data-id="${escAttr(m.id)}">
@@ -70,7 +95,7 @@ function rendre() {
             <div class="vehicule">${escHTML(nomComplet(m))}</div>
             <div class="dates">${nombre(m.prixJour)} MAD / jour · ${escHTML([m.boite, m.carburant, m.places ? m.places + " places" : ""].filter(Boolean).join(" · "))} · ${nbVehicules(m.id)} véhicule${nbVehicules(m.id) > 1 ? "s" : ""}</div>
           </div>
-          ${badge(m.visible === false ? "Masqué" : "Sur le site")}
+          ${badge(etatSite(m))}
         </div>`).join("") : '<div class="vide">Aucun modèle.</div>'}</div>
       <div class="fiche" id="fiche-modele"></div>
     </div>`;
@@ -97,7 +122,7 @@ function rendreFiche() {
   const d = m || { type: "Berline", boite: "Manuelle", carburant: "Diesel", places: 5, kmSup: 3, visible: true };
   const vehicules = m ? etat.donnees.vehicules.filter((v) => v.modele === m.id) : [];
   zone.innerHTML = `
-    ${m ? badge(m.visible === false ? "Masqué" : "Sur le site") : ""}
+    ${m ? badge(etatSite(m)) : ""}
     <h2>${m ? escHTML(nomComplet(m)) : "Nouveau modèle"}</h2>
     ${m ? `<div class="ref">${escHTML(m.id)} · ${vehicules.length} véhicule${vehicules.length > 1 ? "s" : ""} dans la flotte</div>` : ""}
     <figure class="photo-modele">

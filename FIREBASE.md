@@ -190,9 +190,13 @@ publier une dans ce dépôt s'il en apparaît une plus tard pour un usage futur.
 - Modèles (`modeles/{id}`, photo dans `modeles/{id}/medias/photo`) : marque,
   modèle, type, gamme, boîte, carburant, places, prix, photo. Lecture publique.
   La section « Notre flotte » de `index.html`, le JSON-LD et `llms.txt` sont
-  régénérés à partir de ces fiches par `outils/catalogue.mjs`, lancé toutes
-  les 15 minutes par `.github/workflows/catalogue.yml` : le site reste du HTML
-  statique lisible sans JavaScript.
+  régénérés à partir de ces fiches par `outils/catalogue.mjs`, programmé
+  toutes les 15 minutes par `.github/workflows/catalogue.yml` : le site reste
+  du HTML statique lisible sans JavaScript. GitHub retarde souvent ces tâches
+  programmées (constaté : une exécution toutes les 3 à 9 heures) ; le
+  back-office affiche « Publication en attente » tant qu'un modèle visible
+  n'est pas dans la page en ligne. Pour publier tout de suite : GitHub >
+  Actions > « Catalogue du site » > « Run workflow ».
   Le menu « Véhicule souhaité » du formulaire de réservation est généré au
   même endroit : un modèle précis, une marque (`marque:Bentley`) ou une
   catégorie (`cat:SUV`). Pour une marque, une catégorie ou « pas de
