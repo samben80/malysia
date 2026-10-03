@@ -348,6 +348,34 @@ details.petit summary{cursor:pointer;color:var(--accent)}
   .fiche{position:static;max-height:none}
 }
 
+/* ---- droits et utilisateurs */
+[data-interdit]{display:none!important}
+aside nav a[hidden]{display:none}
+aside .qui{flex-wrap:wrap;gap:4px 10px}
+aside .qui>span:first-child{overflow-wrap:anywhere}
+.lien-mdp{background:none!important;border:0!important;color:var(--texte2)!important;font-size:12.5px!important;text-transform:none!important;letter-spacing:0!important;font-weight:400!important;text-decoration:underline;padding:0!important;margin:0!important}
+.dialogue{border:1px solid var(--filet);padding:24px;max-width:min(420px,92vw);width:100%;background:var(--surface);color:var(--encre)}
+.dialogue::backdrop{background:rgba(0,0,0,.45)}
+.dialogue h2{font-size:15px;letter-spacing:.06em}
+.dialogue .formulaire{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dialogue label{display:flex;flex-direction:column;gap:4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--texte2)}
+.dialogue input{border:1px solid var(--filet);padding:10px;font:inherit;font-size:14px;background:var(--fond);color:var(--encre)}
+.dialogue .large{grid-column:1/-1}
+.dialogue .action{border:0;padding:12px;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;background:var(--accent);color:#fff}
+.dialogue .action.secondaire{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.etat.ok{color:var(--positif)}
+.droits{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0 4px}
+.droits th{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--texte2);font-weight:400;padding:6px 4px;border-bottom:1px solid var(--filet);text-align:center}
+.droits th:first-child,.droits td:first-child{text-align:left}
+.droits td{padding:7px 4px;border-bottom:1px solid var(--filet-clair);text-align:center}
+.droits input{width:17px;height:17px;accent-color:var(--accent)}
+.droits .sans{color:var(--filet)}
+.prereglages{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+.prereglages button{background:none;border:1px solid var(--filet);color:var(--texte2);padding:6px 10px;font-size:11.5px}
+.statut[data-s="Actif"],.statut[data-s="Administrateur"],.statut[data-s="Propriétaire"]{background:rgba(74,122,86,.14);color:var(--positif)}
+.statut[data-s="Désactivé"]{background:rgba(160,69,63,.1);color:var(--negatif)}
+.statut[data-s="À reprendre"]{background:rgba(176,121,58,.13);color:var(--attente)}
+
 .vh{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 </style>
 </head>
@@ -365,6 +393,7 @@ details.petit summary{cursor:pointer;color:var(--accent)}
     </label>
     <p id="erreur-connexion"></p>
     <button type="submit">Se connecter</button>
+    <button type="button" class="lien-mdp" id="mot-de-passe-oublie">Mot de passe oublié ?</button>
     <p class="retour"><a href="../">← Retour au site</a></p>
   </form>
 </div>
@@ -384,10 +413,11 @@ details.petit summary{cursor:pointer;color:var(--accent)}
       <a href="#paiements">Paiements <span class="badge" id="nb-paiements"></span></a>
       <a href="#facturation">Facturation <span class="badge" id="nb-factures"></span></a>
       <a href="#statistiques">Statistiques <span class="badge"></span></a>
+      <a href="#utilisateurs">Utilisateurs <span class="badge"></span></a>
     </nav>
     <div class="qui">
       <span id="qui-connecte"></span>
-      <button id="deconnexion" type="button">Se déconnecter</button>
+      <span><button id="mon-mot-de-passe" type="button">Mot de passe</button> · <button id="deconnexion" type="button">Se déconnecter</button></span>
     </div>
     <div class="retour-site"><a href="../">← Retour au site</a></div>
   </aside>
@@ -432,10 +462,23 @@ details.petit summary{cursor:pointer;color:var(--accent)}
     <section data-vue="paiements" hidden></section>
     <section data-vue="facturation" hidden></section>
     <section data-vue="statistiques" hidden></section>
+    <section data-vue="utilisateurs" hidden></section>
+    <section data-vue="aucun" hidden><div class="panneau"><h2>Aucun module autorisé</h2><p class="aide">Votre compte est bien reconnu, mais aucun module ne vous est encore ouvert. Demandez à un administrateur de vous donner des droits dans l'écran Utilisateurs.</p></div></section>
   </main>
 </div>
 
 <div id="impression"></div>
+
+<dialog id="dialogue-mot-de-passe" class="dialogue">
+  <form class="formulaire">
+    <h2 class="large">Changer mon mot de passe</h2>
+    <label class="large">Nouveau mot de passe<input type="password" name="nouveau" autocomplete="new-password" minlength="6" required></label>
+    <label class="large">Confirmer<input type="password" name="confirmation" autocomplete="new-password" minlength="6" required></label>
+    <button class="action" type="submit">Enregistrer</button>
+    <button class="action secondaire" type="button" data-fermer>Fermer</button>
+    <p class="etat large"></p>
+  </form>
+</dialog>
 
 <dialog id="visionneuse"><figure style="margin:0"><img alt=""><figcaption></figcaption></figure><form method="dialog" style="position:absolute;top:6px;right:8px"><button>Fermer ✕</button></form></dialog>
 

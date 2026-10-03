@@ -32,7 +32,7 @@ function rendre() {
   const avecAlerte = vehicules.filter((v) => alertesVehicule(v).length).length;
 
   section.innerHTML = `
-    <div class="entete"><h1>Flotte</h1><div class="actions-entete"><button class="bouton secondaire" id="ouvrir-demo">Démonstration</button><button class="bouton secondaire" id="importer-flotte">Importer depuis Excel</button><button class="bouton" id="ajouter-vehicule">+ Ajouter un véhicule</button></div></div>
+    <div class="entete"><h1>Flotte</h1><div class="actions-entete"><button class="bouton secondaire" id="ouvrir-demo" data-droit="flotte:creer">Démonstration</button><button class="bouton secondaire" id="importer-flotte" data-droit="flotte:creer">Importer depuis Excel</button><button class="bouton" id="ajouter-vehicule" data-droit="flotte:creer">+ Ajouter un véhicule</button></div></div>
     ${sousOnglets("flotte")}
     ${importation ? '<div class="panneau" id="zone-import"></div>' : ""}
     ${demo ? '<div class="panneau" id="zone-demo"></div>' : ""}
@@ -148,7 +148,7 @@ function rendreFiche() {
     <div class="ref">${escHTML(nomModele(v.modele))} · ${escHTML(MODELES[v.modele]?.categorie || "")}</div>
     ${blocAlertes(alertes)}
 
-    <form class="formulaire" id="form-statut">
+    <form class="formulaire" id="form-statut" data-droit-saisie="flotte:modifier">
       ${champ({ nom: "statut", libelle: "Statut", valeur: v.statut, options: STATUTS_VEHICULE })}
       ${champ({ nom: "disponibleLe", libelle: "Disponible prévu le", valeur: v.disponibleLe, type: "date" })}
       <button class="action large" type="submit">Changer le statut</button>
@@ -177,9 +177,9 @@ function rendreFiche() {
     <h3 class="sous-titre">Maintenance</h3>
     ${interventions.length ? `<ul class="mini-liste">${interventions.slice(0, 6).map((m) => `<li><a href="#maintenance/${escAttr(m.id)}">${formateDate(m.date)} · ${escHTML(m.type)}</a> ${m.km !== "" && m.km != null ? `<small>${nombre(m.km)} km</small>` : ""} ${m.statut !== "Terminée" ? badge(m.statut) : ""}</li>`).join("")}</ul>`
       : '<p class="aide">Aucune intervention enregistrée.</p>'}
-    <a class="bouton secondaire bloc" href="#maintenance/nouvelle/${escAttr(v.id)}">Ajouter une intervention</a>
+    <a class="bouton secondaire bloc" href="#maintenance/nouvelle/${escAttr(v.id)}" data-droit="maintenance:creer">Ajouter une intervention</a>
 
-    <details class="modifier"><summary>Modifier la fiche du véhicule</summary><div id="form-vehicule-zone"></div></details>`;
+    <details class="modifier" data-droit="flotte:modifier"><summary>Modifier la fiche du véhicule</summary><div id="form-vehicule-zone"></div></details>`;
 
   const formStatut = fiche.querySelector("#form-statut");
   formStatut.addEventListener("submit", (ev) => { ev.preventDefault(); changerStatut(v, formStatut); });
@@ -422,7 +422,7 @@ function rendreDemo(zone) {
     <p class="aide">Tant que les véhicules fictifs sont là, ils comptent dans les disponibilités affichées sur le site : supprimez-les une fois vos essais terminés.</p>
     ${fictifs ? `<p class="aide">${fictifs} véhicule${fictifs > 1 ? "s" : ""} fictif${fictifs > 1 ? "s" : ""} dans la flotte.</p>` : ""}
     ${fictifs ? "" : '<button class="bouton" id="charger-demo">Charger la flotte de démonstration</button>'}
-    ${supprimables ? `<button class="bouton danger" id="supprimer-demo">Supprimer les ${supprimables} véhicules fictifs</button>` : ""}
+    ${supprimables ? `<button class="bouton danger" id="supprimer-demo" data-droit="flotte:supprimer">Supprimer les ${supprimables} véhicules fictifs</button>` : ""}
     <button class="bouton secondaire" id="fermer-demo" type="button">Fermer</button>
     <p class="etat" id="etat-demo">${escHTML(demo.message)}</p>`;
   const etatEl = zone.querySelector("#etat-demo");

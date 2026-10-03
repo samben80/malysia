@@ -42,7 +42,7 @@ function rendre() {
     : filtre ? tries.filter((f) => f.statut === filtre) : tries;
 
   section.innerHTML = `
-    <div class="entete"><h1>Facturation</h1><button class="bouton" id="nouvelle-facture">+ Nouvelle facture</button></div>
+    <div class="entete"><h1>Facturation</h1><button class="bouton" id="nouvelle-facture" data-droit="facturation:creer">+ Nouvelle facture</button></div>
     <div class="kpis">
       <div class="kpi"><div class="valeur">${nombre(caMois)}</div><div class="libelle">Facturé ce mois (MAD TTC)</div></div>
       <div class="kpi"><div class="valeur">${nombre(encaisseMois)}</div><div class="libelle">Encaissé ce mois (MAD)</div></div>
@@ -98,14 +98,14 @@ function rendreFiche() {
     ${f.statut === "Annulée" ? `<p class="alerte">Annulée${f.motifAnnulation ? " : " + escHTML(f.motifAnnulation) : ""}</p>` : ""}
     <h3 class="sous-titre">Paiements</h3>
     ${(f.paiements || []).length ? `<ul class="mini-liste">${f.paiements.map((p) => `<li>${formateDate(p.date)} · ${mad(p.montant)} <small>${escHTML(p.mode)}</small></li>`).join("")}</ul>` : '<p class="aide">Aucun paiement enregistré.</p>'}
-    ${f.statut !== "Annulée" && reste(f) > 0 ? `<form class="formulaire" id="form-paiement">
+    ${f.statut !== "Annulée" && reste(f) > 0 ? `<form class="formulaire" id="form-paiement" data-droit="facturation:modifier|paiements:modifier">
       ${champ({ nom: "montant", libelle: "Montant (MAD)", valeur: reste(f), type: "number", attrs: 'min="0.01" step="0.01" required' })}
       ${champ({ nom: "date", libelle: "Date", valeur: aujourdhuiISO(), type: "date", attrs: "required" })}
       ${champ({ nom: "mode", libelle: "Mode", valeur: MODES_PAIEMENT[0], options: MODES_PAIEMENT, large: true })}
       <button class="action secondaire large" type="submit">Enregistrer le paiement</button>
       <p class="etat large" id="etat-paiement"></p>
     </form>` : ""}
-    ${f.statut !== "Annulée" ? '<button class="lien-danger" id="annuler-facture">Annuler cette facture</button><p class="etat" id="etat-annulation"></p>' : ""}`;
+    ${f.statut !== "Annulée" ? '<button class="lien-danger" id="annuler-facture" data-droit="facturation:supprimer">Annuler cette facture</button><p class="etat" id="etat-annulation"></p>' : ""}`;
   zone.querySelector("#imprimer").addEventListener("click", () => imprimer(f));
   const formPaiement = zone.querySelector("#form-paiement");
   if (formPaiement) formPaiement.addEventListener("submit", (ev) => { ev.preventDefault(); ajouterPaiement(f, formPaiement); });
@@ -191,7 +191,7 @@ async function nouvelleFacture(zone) {
   zone.innerHTML = `
     <h2>Nouvelle facture</h2>
     ${r ? `<p class="aide">Pré-remplie depuis la réservation ${escHTML(r.id.slice(0, 8).toUpperCase())}. Vérifiez les lignes avant d'émettre : une facture émise ne se modifie plus, elle s'annule.</p>` : ""}
-    <form class="formulaire" id="form-facture">
+    <form class="formulaire" id="form-facture" data-droit="facturation:creer">
       ${champ({ nom: "nom", libelle: "Client (nom ou société)", valeur: proposition.client.nom, attrs: "required", large: true })}
       ${champ({ nom: "adresse", libelle: "Adresse", valeur: proposition.client.adresse, large: true })}
       ${champ({ nom: "telephone", libelle: "Téléphone", valeur: proposition.client.telephone, type: "tel" })}

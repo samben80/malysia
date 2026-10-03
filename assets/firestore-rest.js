@@ -102,7 +102,11 @@ export async function lireDocument(collection, id, { idToken } = {}) {
   if (idToken) headers.Authorization = `Bearer ${idToken}`;
   const res = await fetch(url, { headers });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Firestore ${res.status} : ${await res.text()}`);
+  if (!res.ok) {
+    const err = new Error(`Firestore ${res.status} : ${await res.text()}`);
+    err.status = res.status;
+    throw err;
+  }
   return depuisDocument(await res.json());
 }
 
@@ -138,7 +142,11 @@ export async function corrigerDocument(collection, id, donnees, { idToken } = {}
     headers,
     body: JSON.stringify({ fields: versChampsFirestore(donnees) }),
   });
-  if (!res.ok) throw new Error(`Firestore ${res.status} : ${await res.text()}`);
+  if (!res.ok) {
+    const err = new Error(`Firestore ${res.status} : ${await res.text()}`);
+    err.status = res.status;
+    throw err;
+  }
   return depuisDocument(await res.json());
 }
 
@@ -148,7 +156,11 @@ export async function supprimerDocument(collection, id, { idToken } = {}) {
   const headers = {};
   if (idToken) headers.Authorization = `Bearer ${idToken}`;
   const res = await fetch(url, { method: "DELETE", headers });
-  if (!res.ok) throw new Error(`Firestore ${res.status} : ${await res.text()}`);
+  if (!res.ok) {
+    const err = new Error(`Firestore ${res.status} : ${await res.text()}`);
+    err.status = res.status;
+    throw err;
+  }
 }
 
 // ---- Authentification (compte e-mail / mot de passe du back-office)
@@ -175,6 +187,58 @@ export async function connecter(email, motDePasse) {
     throw new Error(messages[code] || "Connexion refusée.");
   }
   return data; // { idToken, email, refreshToken, expiresIn, localId, ... }
+}
+
+// ---- Gestion des comptes (écran Utilisateurs, mot de passe oublié)
+//
+// Sans serveur, on ne peut ni changer le mot de passe d'un autre compte ni
+// supprimer son compte de connexion : seule l'API d'administration de
+// Firebase le permet, et elle exige un serveur. On fait donc avec ce que
+// l'API publique autorise : créer un compte, envoyer un lien de
+// réinitialisation par e-mail, changer son propre mot de passe.
+
+const MESSAGES_COMPTE = {
+  EMAIL_EXISTS: "Un compte de connexion existe déjà avec cet e-mail.",
+  INVALID_EMAIL: "Adresse e-mail invalide.",
+  WEAK_PASSWORD: "Mot de passe trop court : 6 caractères au moins.",
+  EMAIL_NOT_FOUND: "Aucun compte avec cet e-mail.",
+  CREDENTIAL_TOO_OLD_LOGIN_AGAIN: "Par sécurité, déconnectez-vous puis reconnectez-vous avant de changer votre mot de passe.",
+  TOO_MANY_ATTEMPTS_TRY_LATER: "Trop de tentatives, réessayez dans quelques minutes.",
+  OPERATION_NOT_ALLOWED: "La connexion par e-mail et mot de passe n'est pas activée dans Firebase.",
+};
+
+async function appelAuth(methode, corps) {
+  const c = cfg();
+  if (!c || !c.apiKey) throw new Error("Configuration Firebase manquante.");
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${methode}?key=${c.apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Firebase-Locale": "fr" },
+    body: JSON.stringify(corps),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const code = String((data && data.error && data.error.message) || "").split(" ")[0];
+    const err = new Error(MESSAGES_COMPTE[code] || `Firebase a refusé l'opération (${code || res.status}).`);
+    err.code = code;
+    throw err;
+  }
+  return data;
+}
+
+/** Crée un compte de connexion (e-mail + mot de passe) sans toucher à la session en cours. */
+export async function creerCompte(email, motDePasse) {
+  const data = await appelAuth("signUp", { email, password: motDePasse, returnSecureToken: false });
+  return { uid: data.localId, email: data.email };
+}
+
+/** Envoie à `email` le lien Firebase pour choisir un nouveau mot de passe. */
+export async function envoyerLienMotDePasse(email) {
+  await appelAuth("sendOobCode", { requestType: "PASSWORD_RESET", email });
+}
+
+/** Change le mot de passe du compte connecté. Retourne la nouvelle session ({ idToken, expiresIn, ... }). */
+export async function changerMotDePasse(idToken, motDePasse) {
+  return appelAuth("update", { idToken, password: motDePasse, returnSecureToken: true });
 }
 
 export function estConfigure() {

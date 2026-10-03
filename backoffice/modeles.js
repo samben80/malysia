@@ -71,18 +71,18 @@ function rendre() {
   const nbVehicules = (id) => etat.donnees.vehicules.filter((v) => v.modele === id).length;
   const masques = modeles.filter((m) => m.visible === false);
   section.innerHTML = `
-    <div class="entete"><h1>Flotte</h1><div class="actions-entete"><button class="bouton" id="nouveau-modele">+ Nouveau modèle</button></div></div>
+    <div class="entete"><h1>Flotte</h1><div class="actions-entete"><button class="bouton" id="nouveau-modele" data-droit="flotte:creer">+ Nouveau modèle</button></div></div>
     ${sousOnglets("modeles")}
     ${modeles.length ? "" : `<div class="panneau">
       <h2>Reprendre les modèles du site</h2>
       <p class="aide">Aucun modèle n'est encore enregistré ici. Reprenez les 8 modèles affichés aujourd'hui sur le site (Dacia Logan, Golf 8, Classe E…) avec leurs prix et leurs photos, puis modifiez-les à votre guise.</p>
-      <button class="bouton" id="reprendre-modeles">Reprendre les 8 modèles du site</button>
+      <button class="bouton" id="reprendre-modeles" data-droit="flotte:creer">Reprendre les 8 modèles du site</button>
       <p class="etat" id="etat-reprise"></p>
     </div>`}
     ${masques.length ? `<div class="panneau">
       <h2>${masques.length} modèle${masques.length > 1 ? "s" : ""} masqué${masques.length > 1 ? "s" : ""} sur le site</h2>
       <p class="aide">${escHTML(masques.map(nomComplet).join(", "))}. Vérifiez leurs prix, puis publiez-les : ils apparaîtront dans « Notre flotte » et dans le choix du véhicule du formulaire de réservation.</p>
-      <button class="bouton" id="publier-masques">Afficher ${masques.length > 1 ? `les ${masques.length} modèles` : "ce modèle"} sur le site</button>
+      <button class="bouton" id="publier-masques" data-droit="flotte:modifier">Afficher ${masques.length > 1 ? `les ${masques.length} modèles` : "ce modèle"} sur le site</button>
       <p class="etat" id="etat-publication"></p>
     </div>` : ""}
     <p class="aide-ecran">Ce que vous enregistrez ici part sur le site (section « Notre flotte » et choix du véhicule) lors de la prochaine mise à jour automatique. GitHub la lance en général dans l'heure, parfois après quelques heures. Tant qu'elle n'est pas passée, le modèle porte la mention « Publication en attente ».</p>
@@ -129,9 +129,9 @@ function rendreFiche() {
       <img id="apercu-photo" src="${escAttr(m ? (m.vignette || photoParDefaut(m.id)) : "")}" alt="" ${m ? "" : "hidden"}>
       <figcaption>Photo affichée sur le site (recadrée au format 16/10, 1200 × 750).${m && m.photoSource ? ` <a href="${escAttr(m.photoSource)}" target="_blank" rel="noopener">Source de la photo</a>` : ""}</figcaption>
     </figure>
-    <label class="bouton secondaire bloc">${m ? "Changer la photo" : "Choisir une photo"}<input type="file" id="fichier-photo" accept="image/*" hidden></label>
+    <label class="bouton secondaire bloc" data-droit="${m ? "flotte:modifier" : "flotte:creer"}">${m ? "Changer la photo" : "Choisir une photo"}<input type="file" id="fichier-photo" accept="image/*" hidden></label>
     <p class="etat" id="etat-photo"></p>
-    <form class="formulaire" id="form-modele">
+    <form class="formulaire" id="form-modele" data-droit-saisie="${m ? "flotte:modifier" : "flotte:creer"}">
       ${champ({ nom: "marque", libelle: "Marque", valeur: d.marque, attrs: 'required placeholder="Dacia"' })}
       ${champ({ nom: "modele", libelle: "Modèle", valeur: d.modele, attrs: 'required placeholder="Logan"' })}
       ${champ({ nom: "type", libelle: "Type (filtre du site)", valeur: d.type, options: TYPES_SITE })}
@@ -153,7 +153,7 @@ function rendreFiche() {
       ${m ? "" : '<button class="action secondaire large" type="button" id="annuler-modele">Annuler</button>'}
       <p class="etat large" id="etat-modele"></p>
     </form>
-    ${m ? '<button class="lien-danger" id="supprimer-modele">Supprimer ce modèle</button><p class="etat" id="etat-suppression"></p>' : ""}`;
+    ${m ? '<button class="lien-danger" id="supprimer-modele" data-droit="flotte:supprimer">Supprimer ce modèle</button><p class="etat" id="etat-suppression"></p>' : ""}`;
 
   const apercu = zone.querySelector("#apercu-photo");
   if (m) {

@@ -77,7 +77,7 @@ function rendre() {
   if (q) visibles = visibles.filter((e) => (e.nom + e.telephone + e.cle + (e.fiche?.email || "") + (e.fiche?.numeroPiece || "")).toLowerCase().replace(/\s+/g, "").includes(q));
   const mois = new Date().toISOString().slice(0, 7);
   section.innerHTML = `
-    <div class="entete"><h1>Clients</h1><button class="bouton" id="nouveau-client">+ Nouveau client</button></div>
+    <div class="entete"><h1>Clients</h1><button class="bouton" id="nouveau-client" data-droit="clients:creer">+ Nouveau client</button></div>
     <div class="kpis">
       <div class="kpi"><div class="valeur">${tous.length}</div><div class="libelle">Clients</div></div>
       <div class="kpi"><div class="valeur">${tous.filter((e) => e.reservations.length > 1).length}</div><div class="libelle">Clients fidèles (2+ locations)</div></div>
@@ -168,7 +168,7 @@ function formulaire(zone, c, proposition) {
   zone.innerHTML = `
     ${!c && selection === "nouveau" ? "<h2>Nouveau client</h2>" : ""}
     ${!c && proposition.numeroPiece ? '<p class="aide">Pré-rempli avec le dernier dossier envoyé par le client.</p>' : ""}
-    <form class="formulaire" id="form-client">
+    <form class="formulaire" id="form-client" data-droit-saisie="${c ? "clients:modifier" : "clients:creer"}">
       ${champ({ nom: "prenom", libelle: "Prénom", valeur: d.prenom })}
       ${champ({ nom: "nom", libelle: "Nom", valeur: d.nom, attrs: "required" })}
       ${champ({ nom: "telephone", libelle: "Téléphone", valeur: d.telephone, type: "tel", attrs: `required ${c ? "readonly" : ""}` })}

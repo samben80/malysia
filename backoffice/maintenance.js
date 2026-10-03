@@ -36,7 +36,7 @@ function rendre() {
 
 
   section.innerHTML = `
-    <div class="entete"><h1>Maintenance</h1><button class="bouton" id="nouvelle-intervention">+ Nouvelle intervention</button></div>
+    <div class="entete"><h1>Maintenance</h1><button class="bouton" id="nouvelle-intervention" data-droit="maintenance:creer">+ Nouvelle intervention</button></div>
     <div class="kpis">
       <div class="kpi"><div class="valeur">${ouvertes.length}</div><div class="libelle">Planifiées ou en cours</div></div>
       <div class="kpi"><div class="valeur">${aPrevoir.length}</div><div class="libelle">Véhicules à surveiller</div></div>
@@ -138,11 +138,11 @@ function rendreFiche() {
     ${badge(m.statut)}
     <h2>${escHTML(m.type)}</h2>
     <div class="ref"><a href="#flotte/${escAttr(m.vehiculeId)}">${escHTML(libelleVehicule(v))}</a></div>
-    ${m.statut !== "Terminée" ? `<button class="action" id="terminer">Marquer terminée</button>
+    ${m.statut !== "Terminée" ? `<button class="action" id="terminer" data-droit="maintenance:modifier">Marquer terminée</button>
       <p class="aide">${m.immobilise ? "Le véhicule repasse en « Disponible » et son kilométrage est mis à jour." : "Le kilométrage du véhicule est mis à jour si celui de l'intervention est plus récent."}</p>
       <p class="etat" id="etat-terminer"></p>` : ""}
     <div id="zone-form"></div>
-    <button class="lien-danger" id="supprimer">Supprimer cette intervention</button>`;
+    <button class="lien-danger" id="supprimer" data-droit="maintenance:supprimer">Supprimer cette intervention</button>`;
   formulaire(fiche.querySelector("#zone-form"), m);
   const terminer = fiche.querySelector("#terminer");
   if (terminer) terminer.addEventListener("click", () => marquerTerminee(m, fiche.querySelector("#etat-terminer")));
@@ -166,7 +166,7 @@ function formulaire(zone, m) {
     .map((v) => [v.id, libelleVehicule(v)])];
   zone.innerHTML = `
     ${nouvelle ? "<h2>Nouvelle intervention</h2>" : ""}
-    <form class="formulaire" id="form-intervention">
+    <form class="formulaire" id="form-intervention" data-droit-saisie="${nouvelle ? "maintenance:creer" : "maintenance:modifier"}">
       ${champ({ nom: "vehiculeId", libelle: "Véhicule", valeur: d.vehiculeId, options, attrs: "required", large: true })}
       ${champ({ nom: "type", libelle: "Type", valeur: d.type, options: TYPES_INTERVENTION })}
       ${champ({ nom: "statut", libelle: "Statut", valeur: d.statut, options: STATUTS_INTERVENTION })}

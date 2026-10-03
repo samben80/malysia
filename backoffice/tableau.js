@@ -5,7 +5,7 @@
 // fiche concernée, chaque carte à la liste complète déjà filtrée.
 import {
   etat, chargerTout, MODELES, nomModele, alertesVehicule, DOCUMENTS_VEHICULE, formateDate, mad, escHTML, escAttr, badge,
-  aujourdhuiISO, maintenantISO, decalerJours,
+  aujourdhuiISO, maintenantISO, decalerJours, peut,
 } from "./commun.js";
 import { ficheClient, nomClient } from "./clients.js";
 import { solde, etatPaiement, autorisationLivraison, enRetardDePaiement, montantPaye } from "./paiements.js";
@@ -62,6 +62,7 @@ function rendre() {
   const retardsRetour = d.enCours.filter((r) => String(r.retour).slice(0, 16) < d.maintenant).length;
   const livraisonsBloquees = d.aLivrer.filter((r) => !autorisationLivraison(r).ok).length;
   const expires = d.conformite.filter((c) => c.expire).length;
+  const resa = peut("reservations"), flotte = peut("flotte");
 
   section.innerHTML = `
     <div class="entete"><h1>Tableau de bord</h1>
@@ -69,43 +70,43 @@ function rendre() {
       <button class="bouton secondaire" id="actualiser-tableau">Actualiser</button></div></div>
     <p class="etat" id="etat-tableau"></p>
     <div class="kpis kpis-tableau">
-      ${tuile(d.aConfirmer.length, "Demandes à confirmer", lien("reservations", "statut", "À confirmer"), d.aConfirmer.length ? "attention" : "")}
-      ${tuile(d.aLivrer.length, "Confirmées à livrer", lien("reservations", "statut", "À livrer"), livraisonsBloquees ? "attention" : "", livraisonsBloquees ? `${livraisonsBloquees} en attente de paiement` : "")}
-      ${tuile(d.enCours.length, "Contrats en cours", lien("reservations", "statut", "En cours"), retardsRetour ? "alerte" : "", retardsRetour ? `${retardsRetour} retour${retardsRetour > 1 ? "s" : ""} en retard` : "")}
-      ${tuile(mad(resteDu).replace(/\s*MAD$/, ""), "Non réglé (MAD)", lien("paiements", "filtre", "dus"), resteDu > 0 ? "alerte" : "", `${d.impayes.length} contrat${d.impayes.length > 1 ? "s" : ""}`)}
-      ${tuile(`${compte("Disponible")}/${d.actives.length}`, "Véhicules disponibles", lien("flotte", "filtre", "Disponible"), "", `${occupation} % en location`)}
-      ${tuile(d.conformite.length, "Documents à renouveler", "#tb-conformite", expires ? "alerte" : d.conformite.length ? "attention" : "", expires ? `${expires} expiré${expires > 1 ? "s" : ""}` : "sous 30 jours")}
+      ${!resa ? "" : tuile(d.aConfirmer.length, "Demandes à confirmer", lien("reservations", "statut", "À confirmer"), d.aConfirmer.length ? "attention" : "")}
+      ${!resa ? "" : tuile(d.aLivrer.length, "Confirmées à livrer", lien("reservations", "statut", "À livrer"), livraisonsBloquees ? "attention" : "", livraisonsBloquees ? `${livraisonsBloquees} en attente de paiement` : "")}
+      ${!resa ? "" : tuile(d.enCours.length, "Contrats en cours", lien("reservations", "statut", "En cours"), retardsRetour ? "alerte" : "", retardsRetour ? `${retardsRetour} retour${retardsRetour > 1 ? "s" : ""} en retard` : "")}
+      ${!peut("paiements") ? "" : tuile(mad(resteDu).replace(/\s*MAD$/, ""), "Non réglé (MAD)", lien("paiements", "filtre", "dus"), resteDu > 0 ? "alerte" : "", `${d.impayes.length} contrat${d.impayes.length > 1 ? "s" : ""}`)}
+      ${!flotte ? "" : tuile(`${compte("Disponible")}/${d.actives.length}`, "Véhicules disponibles", lien("flotte", "filtre", "Disponible"), "", `${occupation} % en location`)}
+      ${!flotte ? "" : tuile(d.conformite.length, "Documents à renouveler", "#tb-conformite", expires ? "alerte" : d.conformite.length ? "attention" : "", expires ? `${expires} expiré${expires > 1 ? "s" : ""}` : "sous 30 jours")}
     </div>
-    ${barreFlotte(d)}
+    ${flotte ? barreFlotte(d) : ""}
     <div class="grille-tableau">
-      ${carte("Aujourd'hui", d.departs.length + d.retours.length, "", [
+      ${!resa ? "" : carte("Aujourd'hui", d.departs.length + d.retours.length, "", [
         ...d.departs.map((r) => ligneResa(r, `Départ ${heure(r.depart)}`, !autorisationLivraison(r).ok ? ["Non payée", "attention"] : "")),
         ...d.retours.map((r) => ligneResa(r, `Retour ${heure(r.retour)}`, "")),
       ], "Aucun départ ni retour prévu aujourd'hui.")}
-      ${carte("Réservations à confirmer", d.aConfirmer.length, lien("reservations", "statut", "À confirmer"),
+      ${!resa ? "" : carte("Réservations à confirmer", d.aConfirmer.length, lien("reservations", "statut", "À confirmer"),
         d.aConfirmer.map((r) => ligneResa(r, `${formateDate(r.depart)} → ${formateDate(r.retour)}`, String(r.depart).slice(0, 16) < d.maintenant ? ["Date passée", "alerte"] : "")),
         "Aucune demande en attente.")}
-      ${carte("Confirmées, en attente de livraison", d.aLivrer.length, lien("reservations", "statut", "À livrer"),
+      ${!resa ? "" : carte("Confirmées, en attente de livraison", d.aLivrer.length, lien("reservations", "statut", "À livrer"),
         d.aLivrer.map((r) => ligneResa(r, `départ ${formateDate(r.depart)}${r.immatriculation ? " · " + r.immatriculation : " · véhicule non attribué"}`,
           String(r.depart).slice(0, 16) < d.maintenant ? ["Livraison en retard", "alerte"] : !autorisationLivraison(r).ok ? etatPaiement(r) : "", r.statut)),
         "Aucune livraison en attente.", "tb-livrer")}
-      ${carte("Contrats en cours", d.enCours.length, lien("reservations", "statut", "En cours"),
+      ${!resa ? "" : carte("Contrats en cours", d.enCours.length, lien("reservations", "statut", "En cours"),
         d.enCours.map((r) => ligneResa(r, `retour ${formateDate(r.retour)}${r.immatriculation ? " · " + r.immatriculation : ""}`,
           String(r.retour).slice(0, 16) < d.maintenant ? ["Retour en retard", "alerte"] : solde(r) > 0.005 ? [`Reste ${mad(solde(r))}`, "attention"] : "")),
         "Aucun véhicule chez un client.")}
-      ${carte("Contrats non réglés", d.impayes.length, lien("paiements", "filtre", "dus"),
+      ${!peut("paiements") ? "" : carte("Contrats non réglés", d.impayes.length, lien("paiements", "filtre", "dus"),
         d.impayes.map((r) => ligneResa(r, `${r.statut === "En cours" ? "en cours" : "rendu le " + formateDate(jour(r.retourLe || r.retour))} · payé ${mad(montantPaye(r))}`,
           enRetardDePaiement(r) ? [`Échu · ${mad(solde(r))}`, "alerte"] : [mad(solde(r)), "attention"])),
         "Tous les contrats sont réglés.", "", d.impayes.length ? `Total ${mad(resteDu)}` : "")}
-      ${carte("Véhicules indisponibles", d.indisponibles.length, lien("flotte", "filtre", "En réparation"),
+      ${!flotte ? "" : carte("Véhicules indisponibles", d.indisponibles.length, lien("flotte", "filtre", "En réparation"),
         d.indisponibles.map((v) => ligneVehicule(v, v.statut === "Hors service" ? "Hors service"
           : v.disponibleLe ? `retour prévu le ${formateDate(v.disponibleLe)}` : "date de retour inconnue",
           v.statut === "Hors service" ? "Hors service" : v.disponibleLe && v.disponibleLe < d.auj ? ["Retour dépassé", "alerte"] : "En réparation")),
         "Toute la flotte est disponible.")}
-      ${carte("Conformité administrative", d.conformite.length, lien("flotte", "filtre", "alertes"),
+      ${!flotte ? "" : carte("Conformité administrative", d.conformite.length, lien("flotte", "filtre", "alertes"),
         d.conformite.map((c) => ligneVehicule(c.v, `${c.libelle} ${c.expire ? "expirée le" : "jusqu'au"} ${formateDate(c.date)}`, c.expire ? ["Expiré", "alerte"] : ["À renouveler", "attention"])),
         "Assurances, visites techniques, vignettes et autorisations de circulation à jour pour 30 jours.", "tb-conformite")}
-      ${carte("Entretien à prévoir", d.entretien.length, "#maintenance",
+      ${!peut("maintenance") ? "" : carte("Entretien à prévoir", d.entretien.length, "#maintenance",
         d.entretien.map(({ v, alertes }) => ligneVehicule(v, alertes.map((a) => a.texte).join(" · "), alertes.some((a) => a.niveau === "danger") ? ["Dépassé", "alerte"] : ["Bientôt", "attention"])),
         "Aucune vidange ni changement de pneus à prévoir.")}
     </div>`;

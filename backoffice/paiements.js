@@ -143,7 +143,7 @@ export function renderBlocPaiement(bloc, r, rafraichir) {
       <tr class="${reste > 0.005 ? "reste-du" : ""}"><td><b>${reste < -0.005 ? "Trop-perçu à rembourser" : "Reste à payer"}</b></td><td><b>${mad(Math.abs(reste))}</b></td></tr>
     </table>
     ${(r.paiements || []).length ? `<ul class="mini-liste">${r.paiements.map((p) => `<li>${formateDate(p.date)} · ${mad(p.montant)} <small>${escHTML([p.mode, p.reference].filter(Boolean).join(" · "))}</small></li>`).join("")}</ul>` : ""}
-    ${r.statut !== "Annulée" && reste > 0.005 ? `<form class="formulaire" id="form-encaissement">
+    ${r.statut !== "Annulée" && reste > 0.005 ? `<form class="formulaire" id="form-encaissement" data-droit="paiements:modifier">
       ${champ({ nom: "montant", libelle: "Montant encaissé (MAD)", valeur: reste, type: "number", attrs: 'min="0.01" step="0.01" required' })}
       ${champ({ nom: "date", libelle: "Date", valeur: aujourdhuiISO(), type: "date", attrs: "required" })}
       ${champ({ nom: "mode", libelle: "Mode", valeur: MODES_PAIEMENT[0], options: MODES_PAIEMENT })}
@@ -151,7 +151,7 @@ export function renderBlocPaiement(bloc, r, rafraichir) {
       <button class="action large" type="submit">Enregistrer le paiement</button>
       <p class="etat large" id="etat-encaissement"></p>
     </form>` : ""}
-    ${avantDepart && !r.contrat ? `<details class="petit"><summary>Modifier le montant de la location</summary>
+    ${avantDepart && !r.contrat ? `<details class="petit" data-droit="paiements:modifier"><summary>Modifier le montant de la location</summary>
       <form class="formulaire" id="form-montant">
         ${champ({ nom: "prixTotal", libelle: "Montant total TTC convenu (MAD)", valeur: prixSaisi(r) ? r.prixTotal : montantLocation(r) || "", type: "number", attrs: 'min="0" step="0.01" required' })}
         <button class="action secondaire" type="submit">Enregistrer le montant</button>

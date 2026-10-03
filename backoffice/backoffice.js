@@ -4,13 +4,16 @@ import {
   corrigerDocument,
   lireDocument,
   estConfigure,
+  envoyerLienMotDePasse,
+  changerMotDePasse,
 } from "../assets/firestore-rest.js";
 import { SOCIETE, FRAIS, conditionsGenerales } from "../assets/contrat-modele.js";
 import {
   etat, jeton, chargerTout, majDisponibilite, nomModele, MODELES, STATUTS_ACTIFS, chevauche, alertesVehicule,
   cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO, messageErreur,
-  estDemandeGroupe, correspondDemande, mad,
+  estDemandeGroupe, correspondDemande, mad, peut, estAdmin, MODULES, PROPRIETAIRE,
 } from "./commun.js";
+import { afficherUtilisateurs } from "./utilisateurs.js";
 import { afficherTableau } from "./tableau.js";
 import { afficherStatistiques } from "./statistiques.js";
 import { afficherFlotte } from "./flotte.js";
@@ -64,6 +67,28 @@ function effacerSession() {
   try { sessionStorage.removeItem(CLE_SESSION); } catch {}
 }
 
+// Droits du compte connecté, lus dans sa fiche utilisateurs/{e-mail}.
+async function chargerProfil() {
+  const email = String(etat.session.email || "").toLowerCase();
+  let fiche;
+  try {
+    fiche = await lireDocument("utilisateurs", email, jeton());
+  } catch (e) {
+    if (e.status !== 403) throw e;
+    // Règles publiées d'avant la gestion des utilisateurs : la liste
+    // d'e-mails de firestore.rules donne encore tous les droits.
+    etat.profil = { ancien: true, admin: email === PROPRIETAIRE };
+    return true;
+  }
+  if (email === PROPRIETAIRE) {
+    etat.profil = { admin: true, proprietaire: true, nom: (fiche && fiche.nom) || "" };
+    return true;
+  }
+  if (!fiche || fiche.actif !== true) return false;
+  etat.profil = { admin: !!fiche.admin, droits: fiche.droits || {}, nom: fiche.nom || "" };
+  return true;
+}
+
 async function afficherApp() {
   ecranConnexion.style.display = "none";
   app.classList.add("actif");
@@ -71,6 +96,11 @@ async function afficherApp() {
   listeEl.innerHTML = '<div class="vide">Chargement…</div>';
   try {
     etat.pret = false;
+    if (!(await chargerProfil())) {
+      afficherConnexion("Ce compte n'a pas accès au back-office. Demandez à un administrateur de vous ajouter dans l'écran Utilisateurs.");
+      return;
+    }
+    appliquerMenu();
     const refusees = await chargerTout();
     etat.pret = true;
     document.getElementById("bandeau-regles").hidden = refusees.length === 0;
@@ -86,6 +116,7 @@ async function afficherApp() {
 }
 function afficherConnexion(message) {
   effacerSession();
+  etat.profil = null;
   app.classList.remove("actif");
   ecranConnexion.style.display = "flex";
   erreurConnexion.textContent = message || "";
@@ -130,19 +161,98 @@ const ECRANS = {
   facturation: afficherFacturation,
   paiements: afficherPaiements,
   statistiques: afficherStatistiques,
+  utilisateurs: afficherUtilisateurs,
 };
+
+// Module dont dépend chaque écran (les modèles font partie de la flotte).
+const moduleEcran = (ecran) => (ecran === "modeles" ? "flotte" : ecran);
+const ecranPermis = (ecran) => (ecran === "utilisateurs" ? estAdmin() : peut(moduleEcran(ecran)));
+
+// Menu : seuls les modules accessibles à ce compte.
+function appliquerMenu() {
+  document.querySelectorAll("aside nav a").forEach((a) => {
+    a.hidden = !ecranPermis(a.getAttribute("href").slice(1));
+  });
+}
 
 function router() {
   if (!etat.session || !etat.pret) return; // données pas encore chargées : afficherApp rappellera router()
   const [nom, param, param2] = location.hash.replace(/^#/, "").split("/").map(decodeURIComponent);
-  const ecran = ECRANS[nom] ? nom : "tableau";
+  const premier = Object.keys(ECRANS).find(ecranPermis);
+  if (!premier) {
+    document.querySelectorAll("[data-vue]").forEach((s) => { s.hidden = s.dataset.vue !== "aucun"; });
+    return;
+  }
+  const ecran = ECRANS[nom] && ecranPermis(nom) ? nom : ecranPermis("tableau") ? "tableau" : premier;
   document.querySelectorAll("[data-vue]").forEach((s) => { s.hidden = s.dataset.vue !== ecran; });
-  document.querySelectorAll("aside nav a").forEach((a) => a.classList.toggle("actif", a.getAttribute("href") === "#" + (ecran === "modeles" ? "flotte" : ecran)));
+  document.querySelectorAll("aside nav a").forEach((a) => a.classList.toggle("actif", a.getAttribute("href") === "#" + moduleEcran(ecran)));
   ECRANS[ecran](document.querySelector(`[data-vue="${ecran}"]`), param, param2);
   majBadges();
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", router);
+
+// Boutons et formulaires réservés à un droit : data-droit="flotte:creer"
+// (plusieurs possibilités séparées par |) masque l'élément ;
+// data-droit-saisie le laisse lisible mais en lecture seule. Appliqué après
+// chaque rendu d'écran, une fois les gestionnaires d'événements posés.
+const autorise = (regle) => String(regle || "").split("|").some((x) => { const [m, a] = x.split(":"); return peut(m, a); });
+function appliquerDroits() {
+  if (!etat.profil) return;
+  document.querySelectorAll("#app [data-droit]").forEach((el) => {
+    el.toggleAttribute("data-interdit", !autorise(el.dataset.droit));
+  });
+  document.querySelectorAll("#app form[data-droit-saisie]").forEach((form) => {
+    if (autorise(form.dataset.droitSaisie)) return;
+    for (const el of form.elements) el.disabled = true;
+    form.querySelectorAll("button").forEach((b) => b.setAttribute("data-interdit", ""));
+  });
+}
+new MutationObserver(appliquerDroits).observe(document.querySelector("#app main"), { childList: true, subtree: true });
+
+// ---- mots de passe
+
+document.getElementById("mot-de-passe-oublie").addEventListener("click", async () => {
+  const email = formConnexion.elements["email"].value.trim();
+  if (!email) {
+    erreurConnexion.textContent = "Saisissez d'abord votre e-mail ci-dessus.";
+    return;
+  }
+  erreurConnexion.textContent = "Envoi…";
+  try {
+    await envoyerLienMotDePasse(email);
+    erreurConnexion.textContent = `Si un compte existe pour ${email}, un e-mail vient de partir avec un lien pour choisir un nouveau mot de passe (pensez à regarder dans les indésirables).`;
+  } catch (e) {
+    erreurConnexion.textContent = e.message;
+  }
+});
+
+const dialogueMdp = document.getElementById("dialogue-mot-de-passe");
+document.getElementById("mon-mot-de-passe").addEventListener("click", () => {
+  dialogueMdp.querySelector("form").reset();
+  dialogueMdp.querySelector(".etat").textContent = "";
+  dialogueMdp.showModal();
+});
+dialogueMdp.querySelector("[data-fermer]").addEventListener("click", () => dialogueMdp.close());
+dialogueMdp.querySelector("form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = ev.target.elements;
+  const etatEl = dialogueMdp.querySelector(".etat");
+  etatEl.className = "etat erreur";
+  if (f["nouveau"].value.length < 6) { etatEl.textContent = "6 caractères au moins."; return; }
+  if (f["nouveau"].value !== f["confirmation"].value) { etatEl.textContent = "Les deux saisies ne correspondent pas."; return; }
+  etatEl.className = "etat";
+  etatEl.textContent = "Enregistrement…";
+  try {
+    const res = await changerMotDePasse(etat.session.idToken, f["nouveau"].value);
+    sauverSession({ ...etat.session, idToken: res.idToken, expire: Date.now() + Number(res.expiresIn) * 1000 });
+    etatEl.className = "etat ok";
+    etatEl.textContent = "Mot de passe changé. Il servira à votre prochaine connexion.";
+  } catch (e) {
+    etatEl.className = "etat erreur";
+    etatEl.textContent = e.message;
+  }
+});
 
 // Sur téléphone, la fiche s'affiche sous la liste : on y descend après un choix.
 document.addEventListener("click", (ev) => {
@@ -252,7 +362,7 @@ function renderFiche() {
     </div>
     ${STATUTS_ACTIFS.includes(r.statut) || r.statut === "À confirmer" ? '<div class="bloc" id="bloc-attribution"></div>' : ""}
     ${prochain
-      ? `<button class="action" id="bouton-action">${libelle}</button><p class="aide">${aide}</p>`
+      ? `<button class="action" id="bouton-action" data-droit="reservations:modifier">${libelle}</button><p class="aide">${aide}</p>`
       : `<p class="aide">${aide}</p>`}
     <p id="etat-action"></p>
     ${r.statut !== "Annulée" ? '<div class="bloc" id="bloc-paiement"></div>' : ""}
@@ -263,9 +373,9 @@ function renderFiche() {
       : ""}
     ${r.statut !== "À confirmer" && r.statut !== "Annulée" ? `<div class="bloc"><h3>Facture</h3>${r.facture
       ? `<a class="bouton secondaire bloc" href="#facturation/${escAttr(r.facture)}">Voir la facture ${escHTML(r.facture)}</a>`
-      : `<a class="bouton secondaire bloc" href="#facturation/nouvelle/${escAttr(r.id)}">Créer la facture</a>`}</div>` : ""}
+      : `<a class="bouton secondaire bloc" href="#facturation/nouvelle/${escAttr(r.id)}" data-droit="facturation:creer">Créer la facture</a>`}</div>` : ""}
     ${r.statut !== "À confirmer" && r.statut !== "Annulée" ? '<div class="dossier" id="bloc-dossier"></div>' : ""}
-    ${annulable ? '<button class="lien-danger" id="annuler-reservation">Annuler la réservation</button>' : ""}
+    ${annulable ? '<button class="lien-danger" id="annuler-reservation" data-droit="reservations:supprimer">Annuler la réservation</button>' : ""}
   `;
   if (prochain) {
     document.getElementById("bouton-action").addEventListener("click", () => appliquerAction(r, prochain));
@@ -309,7 +419,7 @@ function renderAttribution(r) {
   const autres = vehicules.filter((v) => !correspondDemande(demande, v.modele));
   const motifsActuel = actuel ? conflits(r, actuel) : [];
   bloc.innerHTML = `<h3>Véhicule attribué</h3>
-    ${vehicules.length ? `<select id="choix-vehicule">
+    ${vehicules.length ? `<select id="choix-vehicule" data-droit="reservations:modifier">
       <option value="">Non attribué</option>
       ${memeModele.length ? `<optgroup label="${escAttr(nomModele(demande))}">${memeModele.map(option).join("")}</optgroup>` : ""}
       ${autres.length ? `<optgroup label="${demande ? "Autres modèles (surclassement)" : "Tous les véhicules"}">${autres.map(option).join("")}</optgroup>` : ""}
@@ -370,7 +480,7 @@ function renderRemise(r) {
   }
   bloc.innerHTML = `<h3>Remise du véhicule</h3>
     ${autorisation.compte ? `<p class="alerte attention">${escHTML(autorisation.motif)}</p>` : ""}
-    <form class="formulaire" id="form-remise">
+    <form class="formulaire" id="form-remise" data-droit="reservations:modifier">
       <label>Kilométrage au départ<input name="km" type="number" min="0" required value="${escAttr(r.kmDepart ?? v.kmActuel ?? "")}"></label>
       <button class="action" type="submit">Remettre ${escHTML(v.immatriculation)} au client</button>
       <p class="aide large">La location passe « En cours » et le véhicule « En circulation ».</p>
@@ -407,7 +517,7 @@ function renderRetour(r) {
   const joursRetard = Number.isFinite(retardMs) && retardMs > 0 ? Math.ceil(retardMs / 86400000) : 0;
   const prixJour = tarif.prixJour || Math.round((Number(r.prixTotal) || 0) / jours) || 0;
   bloc.innerHTML = `<h3>Retour du véhicule</h3>
-    <form class="formulaire" id="form-retour">
+    <form class="formulaire" id="form-retour" data-droit="reservations:modifier">
       <label>Kilométrage au retour<input name="km" type="number" min="${escAttr(r.kmDepart || 0)}" required></label>
       <p class="aide large" id="calcul-km">Inclus : ${nombre(FRAIS.kmInclusParJour * jours)} km (${jours} j × ${FRAIS.kmInclusParJour} km).</p>
       <label>Supplément kilométrique (MAD)<input name="supKm" type="number" min="0" step="0.01" value="0"></label>
@@ -499,7 +609,7 @@ async function renderDossier(r) {
   if (!r.dossier) {
     bloc.innerHTML = `<h3>Dossier client</h3>
       <p class="aide">Envoie au client un lien pour qu'il remplisse ses informations et photographie son permis et sa pièce d'identité.</p>
-      ${r.telephone ? '<button class="action secondaire" id="demander-dossier">Demander le dossier par WhatsApp</button>' : '<p class="aide">Pas de numéro de téléphone sur cette demande.</p>'}
+      ${r.telephone ? '<button class="action secondaire" id="demander-dossier" data-droit="reservations:modifier">Demander le dossier par WhatsApp</button>' : '<p class="aide">Pas de numéro de téléphone sur cette demande.</p>'}
       <p id="etat-dossier"></p>`;
     const bouton = document.getElementById("demander-dossier");
     if (bouton) bouton.addEventListener("click", () => demanderDossier(r));
@@ -581,7 +691,7 @@ async function renderContrat(r, fiche) {
   bloc.innerHTML = `<h3>Contrat ${existant ? badge("Généré") : ""}</h3>
     ${existant ? `<a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienContrat(r.contrat))}">Voir le contrat</a>
       <a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(r.telephone, messageContrat(r, existant, r.contrat)))}">Envoyer le contrat par WhatsApp</a>` : ""}
-    <form id="form-contrat" class="form-contrat formulaire">
+    <form id="form-contrat" class="form-contrat formulaire" data-droit="reservations:modifier">
       <label>Immatriculation<input name="immatriculation" required value="${val(r.immatriculation || v.immatriculation)}"></label>
       <label>Carburant<input name="carburant" value="${val(v.carburant, (attribue && attribue.carburant) || tarif.carburant)}"></label>
       <label>Kilométrage au départ<input name="kmDepart" type="number" min="0" value="${val(existant && existant.kmDepart, r.kmDepart ?? (attribue && attribue.kmActuel))}" placeholder="à la remise"></label>

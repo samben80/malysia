@@ -10,6 +10,47 @@ export const etat = {
 
 export const jeton = () => ({ idToken: etat.session.idToken });
 
+// ---- droits de l'utilisateur connecté
+//
+// Chaque compte a une fiche utilisateurs/{e-mail} (écran Utilisateurs) qui
+// donne, module par module, les droits accès / créer / modifier / supprimer.
+// Les mêmes droits sont vérifiés par les règles Firestore : ce qui suit ne
+// sert qu'à masquer ce que le compte n'a de toute façon pas le droit de faire.
+
+// Propriétaire : tous les droits, toujours (écrit aussi dans firestore.rules).
+export const PROPRIETAIRE = "bs@bgp.ma";
+
+// [id, libellé, actions possibles]. Les écrans de consultation n'ont que l'accès.
+export const MODULES = [
+  ["tableau", "Tableau de bord", ["acces"]],
+  ["reservations", "Réservations", ["acces", "creer", "modifier", "supprimer"]],
+  ["flotte", "Flotte et modèles", ["acces", "creer", "modifier", "supprimer"]],
+  ["maintenance", "Maintenance", ["acces", "creer", "modifier", "supprimer"]],
+  ["clients", "Clients", ["acces", "creer", "modifier", "supprimer"]],
+  ["paiements", "Paiements", ["acces", "modifier"]],
+  ["facturation", "Facturation", ["acces", "creer", "modifier", "supprimer"]],
+  ["statistiques", "Statistiques", ["acces"]],
+];
+export const ACTIONS = [["acces", "Accès"], ["creer", "Créer"], ["modifier", "Modifier"], ["supprimer", "Supprimer / annuler"]];
+
+// Profil chargé à la connexion : { admin, droits, ancien } — `ancien` quand
+// les règles Firestore publiées datent d'avant la gestion des utilisateurs
+// (la liste d'e-mails donnait alors tous les droits).
+export function peut(module, action = "acces") {
+  const p = etat.profil;
+  if (!p) return false;
+  if (p.admin || p.ancien) return true;
+  const d = p.droits && p.droits[module];
+  if (!d || !d.acces) return false;
+  return !!d[action];
+}
+export const estAdmin = () => !!(etat.profil && (etat.profil.admin || etat.profil.ancien));
+
+// Droits complets ou vides, pour préremplir une fiche utilisateur.
+export function droitsTous(valeur) {
+  return Object.fromEntries(MODULES.map(([id, , actions]) => [id, Object.fromEntries(actions.map((a) => [a, valeur]))]));
+}
+
 // Modèles présentés sur le site (catégories vues par le client). Les véhicules
 // de la flotte, eux, sont suivis un par un avec leur immatriculation.
 // Chargés depuis la collection « modeles » (onglet Flotte > Modèles) ; tant
@@ -307,7 +348,7 @@ export function valeursFormulaire(form) {
 export function messageErreur(e) {
   const m = String((e && e.message) || e);
   if (/\b403\b|PERMISSION_DENIED/.test(m)) {
-    return "Échec : Firebase refuse l'accès. Soit les règles de sécurité à jour (fichier firestore.rules) ne sont pas encore publiées dans la console Firebase (Firestore > Règles), soit ce compte ne fait pas partie de l'équipe autorisée.";
+    return "Échec : Firebase refuse l'opération. Soit votre compte n'a pas le droit de la faire (voir l'écran Utilisateurs avec un administrateur), soit les règles de sécurité à jour (fichier firestore.rules) ne sont pas encore publiées dans la console Firebase (Firestore > Règles).";
   }
   return "Échec : " + m;
 }
