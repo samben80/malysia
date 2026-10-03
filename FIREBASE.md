@@ -47,7 +47,7 @@ service cloud.firestore {
     // collaborateur : créer son compte, puis ajouter son e-mail ici.
     function equipe() {
       return request.auth != null
-        && request.auth.token.email in ["bs@bgp.ma"];
+        && request.auth.token.email in ["bs@bgp.ma", "anas@bgp.ma"];
     }
 
     // Demandes du site public : tout le monde peut en créer une, seule
