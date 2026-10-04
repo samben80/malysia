@@ -4,6 +4,7 @@
 // régénérée à partir de ces fiches (outils/catalogue.mjs, lancé
 // automatiquement par une tâche GitHub programmée, lancée avec retard par GitHub).
 import { creerDocument, corrigerDocument, lireDocument, supprimerDocument } from "../assets/firestore-rest.js";
+import { TRANCHES, MOIS, prixLocation, detailPrix, grilleRenseignee } from "../assets/tarification.js";
 import {
   etat, jeton, synchroniserModeles, nombre, escHTML, escAttr, champ, valeursFormulaire, badge, executer,
 } from "./commun.js";
@@ -28,6 +29,7 @@ let section = null;
 let photoEnAttente = null; // { image, vignette } choisie mais pas encore enregistrée
 let surLeSite = null; // ids des modèles présents dans la page publique actuellement en ligne
 let luLe = 0;
+const simulation = { depart: `${new Date().getFullYear()}-12-26`, jours: 10 }; // garde la simulation d'un modèle à l'autre
 
 // La page publique est régénérée par une tâche GitHub : on lit la version en
 // ligne pour distinguer « Sur le site » de « Publication en attente ».
@@ -93,7 +95,7 @@ function rendre() {
           <div>
             <div class="ref">${escHTML(m.type || "")} · ${escHTML(m.categorie || "")}</div>
             <div class="vehicule">${escHTML(nomComplet(m))}</div>
-            <div class="dates">${nombre(m.prixJour)} MAD / jour · ${escHTML([m.boite, m.carburant, m.places ? m.places + " places" : ""].filter(Boolean).join(" · "))} · ${nbVehicules(m.id)} véhicule${nbVehicules(m.id) > 1 ? "s" : ""}</div>
+            <div class="dates">${nombre(m.prixJour)} MAD / jour${grilleRenseignee(m) ? " (grille)" : ""} · ${escHTML([m.boite, m.carburant, m.places ? m.places + " places" : ""].filter(Boolean).join(" · "))} · ${nbVehicules(m.id)} véhicule${nbVehicules(m.id) > 1 ? "s" : ""}</div>
           </div>
           ${badge(etatSite(m))}
         </div>`).join("") : '<div class="vide">Aucun modèle.</div>'}</div>
@@ -141,7 +143,21 @@ function rendreFiche() {
       ${champ({ nom: "places", libelle: "Places", valeur: d.places, type: "number", attrs: 'min="1" max="60" required' })}
       ${champ({ nom: "portes", libelle: "Portes", valeur: d.portes, type: "number", attrs: 'min="1" max="6"' })}
       ${champ({ nom: "bagages", libelle: "Valises", valeur: d.bagages, type: "number", attrs: 'min="0" max="30"' })}
-      ${champ({ nom: "prixJour", libelle: "Prix par jour TTC (MAD)", valeur: d.prixJour, type: "number", attrs: 'min="0" required' })}
+      <fieldset class="large grille-tarifs">
+        <legend>Prix par jour TTC (MAD) selon la durée de la location</legend>
+        ${TRANCHES.map((t, i) => champ({ nom: t.champ, libelle: t.libelle, valeur: d[t.champ], type: "number", attrs: i ? 'min="0" step="0.01" placeholder="tranche précédente"' : 'min="0" step="0.01" required' })).join("")}
+        <p class="aide large">Le prix de la 1re semaine est celui affiché sur le site. Une tranche laissée vide reprend le prix de la précédente.</p>
+      </fieldset>
+      <fieldset class="large grille-coef">
+        <legend>Coefficient multiplicateur par mois</legend>
+        ${MOIS.map((nomMois, i) => champ({ nom: "coef" + i, libelle: nomMois, valeur: (d.coefMois && d.coefMois[i]) || 1, type: "number", attrs: 'min="0.1" max="10" step="0.01" required' })).join("")}
+        <p class="aide large">Chaque jour de location est multiplié par le coefficient de son mois : 2 en décembre double le prix des jours de décembre.</p>
+      </fieldset>
+      <div class="large simulation-prix">
+        <label>Simuler une location : départ<input type="date" id="sim-depart" value="${escAttr(simulation.depart)}"></label>
+        <label>Nombre de jours<input type="number" id="sim-jours" min="1" max="365" value="${escAttr(simulation.jours)}"></label>
+        <p class="aide large" id="sim-resultat"></p>
+      </div>
       ${champ({ nom: "kmSup", libelle: "Km supplémentaire (MAD)", valeur: d.kmSup, type: "number", attrs: 'min="0" step="0.5"' })}
       ${champ({ nom: "caution", libelle: "Caution (MAD)", valeur: d.caution, type: "number", attrs: 'min="0"' })}
       ${champ({ nom: "description", libelle: "Description courte (lue par Google et les IA)", valeur: d.description, type: "textarea", large: true, attrs: 'maxlength="300"' })}
@@ -187,10 +203,34 @@ function rendreFiche() {
   });
   const form = zone.querySelector("#form-modele");
   form.addEventListener("submit", (ev) => { ev.preventDefault(); enregistrer(m, form); });
+  // simulation du prix avec les valeurs en cours de saisie (pas encore enregistrées)
+  const simuler = () => {
+    const sortie = form.querySelector("#sim-resultat");
+    simulation.depart = form.querySelector("#sim-depart").value;
+    simulation.jours = Math.max(1, Math.min(365, Number(form.querySelector("#sim-jours").value) || 1));
+    if (!simulation.depart) { sortie.textContent = ""; return; }
+    const debut = new Date(simulation.depart + "T10:00:00Z");
+    const fin = new Date(debut.getTime() + simulation.jours * 86400000);
+    const p = prixLocation(grilleDuFormulaire(form), simulation.depart + "T10:00", fin.toISOString().slice(0, 16));
+    sortie.textContent = p.total ? `${p.jours} jours du ${debut.toLocaleDateString("fr-FR", { timeZone: "UTC" })} au ${fin.toLocaleDateString("fr-FR", { timeZone: "UTC" })} : ${nombre(p.total)} MAD (${detailPrix(p)}).` : "Saisissez le prix de la 1re semaine.";
+  };
+  form.addEventListener("input", simuler);
+  simuler();
   const annuler = zone.querySelector("#annuler-modele");
   if (annuler) annuler.addEventListener("click", () => { selection = null; rendre(); });
   const supprimer = zone.querySelector("#supprimer-modele");
   if (supprimer) supprimer.addEventListener("click", () => supprimerModele(m, zone.querySelector("#etat-suppression")));
+}
+
+// Valeurs du formulaire, les 12 coefficients regroupés dans coefMois (janvier en premier).
+function grilleDuFormulaire(form) {
+  const donnees = valeursFormulaire(form);
+  donnees.coefMois = MOIS.map((_, i) => {
+    const c = Number(donnees["coef" + i]);
+    delete donnees["coef" + i];
+    return Number.isFinite(c) && c > 0 ? c : 1;
+  });
+  return donnees;
 }
 
 function slug(texte) {
@@ -200,7 +240,7 @@ function slug(texte) {
 
 async function enregistrer(m, form) {
   const etatEl = form.querySelector("#etat-modele");
-  const donnees = valeursFormulaire(form);
+  const donnees = grilleDuFormulaire(form);
   donnees.nom = [donnees.marque, donnees.modele].filter(Boolean).join(" ");
   donnees.modifieLe = new Date();
   const doublon = etat.donnees.modeles.find((x) => x.nom.toLowerCase() === donnees.nom.toLowerCase() && (!m || x.id !== m.id));

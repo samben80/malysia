@@ -11,6 +11,7 @@ import {
   aujourdhuiISO, decalerJours, barreFiltres, lierFiltres, contientTexte, executer,
 } from "./commun.js";
 import { ficheClient, nomClient } from "./clients.js";
+import { nombreJours, prixLocation } from "../assets/tarification.js";
 
 export const MODES_PAIEMENT = ["Espèces", "Carte bancaire (CMI)", "Virement", "Chèque"];
 export const DELAI_PAIEMENT_JOURS = 30; // clients en compte, sauf délai propre à la fiche
@@ -19,18 +20,16 @@ const STATUTS_DUS = ["En cours", "Terminée"]; // location partie : le montant e
 const arrondi = (n) => Math.round(Number(n || 0) * 100) / 100;
 const somme = (liste) => arrondi((liste || []).reduce((s, x) => s + (Number(x.montant) || 0), 0));
 
-export function joursLocation(r) {
-  const ms = new Date(r.retour) - new Date(r.depart);
-  return Number.isFinite(ms) ? Math.max(1, Math.ceil(ms / 86400000)) : 1;
-}
+export const joursLocation = (r) => nombreJours(r.depart, r.retour);
+// Prix calculé par la grille du modèle (tranche de durée × coefficient du mois de chaque jour).
+export const prixGrille = (r) => prixLocation(MODELES[r.vehicule], r.depart, r.retour);
 
 // ---- montants d'une réservation
 
 const prixSaisi = (r) => r.prixTotal !== undefined && r.prixTotal !== null && r.prixTotal !== "";
 export function montantLocation(r) {
   if (prixSaisi(r)) return arrondi(r.prixTotal);
-  const tarif = MODELES[r.vehicule] || {};
-  return tarif.prixJour ? arrondi(tarif.prixJour * joursLocation(r)) : 0;
+  return prixGrille(r).total;
 }
 export const montantDu = (r) => arrondi(montantLocation(r) + somme(r.supplements));
 export const montantPaye = (r) => somme(r.paiements);

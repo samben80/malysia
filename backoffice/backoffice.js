@@ -8,6 +8,7 @@ import {
   changerMotDePasse,
 } from "../assets/firestore-rest.js";
 import { SOCIETE, FRAIS, conditionsGenerales } from "../assets/contrat-modele.js";
+import { prixTranche, coefficient, detailPrix } from "../assets/tarification.js";
 import {
   etat, jeton, chargerTout, majDisponibilite, nomModele, MODELES, STATUTS_ACTIFS, chevauche, alertesVehicule,
   cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO, messageErreur,
@@ -22,7 +23,7 @@ import { afficherMaintenance } from "./maintenance.js";
 import { afficherClients, ficheClient, nomClient, majClientDepuisDossier } from "./clients.js";
 import { afficherFacturation } from "./facturation.js";
 import {
-  afficherPaiements, nombreImpayes, renderBlocPaiement, autorisationLivraison, joursLocation, majMontantLocation, solde,
+  afficherPaiements, nombreImpayes, renderBlocPaiement, autorisationLivraison, joursLocation, prixGrille, majMontantLocation, solde,
 } from "./paiements.js";
 
 const CLE_SESSION = "malysia_bo_session";
@@ -515,7 +516,8 @@ function renderRetour(r) {
   // retard au-delà de la tolérance du contrat : chaque jour entamé est dû
   const retardMs = Date.now() - new Date(r.retour).getTime() - FRAIS.toleranceRetardHeures * 3600000;
   const joursRetard = Number.isFinite(retardMs) && retardMs > 0 ? Math.ceil(retardMs / 86400000) : 0;
-  const prixJour = tarif.prixJour || Math.round((Number(r.prixTotal) || 0) / jours) || 0;
+  // jour de retard : prix de la tranche de la location × coefficient du mois en cours
+  const prixJour = tarif.prixJour ? Math.round(prixTranche(tarif, jours) * coefficient(tarif, new Date().getMonth()) * 100) / 100 : Math.round((Number(r.prixTotal) || 0) / jours) || 0;
   bloc.innerHTML = `<h3>Retour du véhicule</h3>
     <form class="formulaire" id="form-retour" data-droit="reservations:modifier">
       <label>Kilométrage au retour<input name="km" type="number" min="${escAttr(r.kmDepart || 0)}" required></label>
@@ -683,6 +685,7 @@ async function renderContrat(r, fiche) {
   }
   const tarif = MODELES[r.vehicule] || {};
   const jours = joursLocation(r);
+  const grille = prixGrille(r);
   const attribue = etat.donnees.vehicules.find((x) => x.id === r.vehiculeAttribue);
   const v = existant ? existant.vehicule || {} : {};
   const loc = existant ? existant.location || {} : {};
@@ -695,12 +698,12 @@ async function renderContrat(r, fiche) {
       <label>Immatriculation<input name="immatriculation" required value="${val(r.immatriculation || v.immatriculation)}"></label>
       <label>Carburant<input name="carburant" value="${val(v.carburant, (attribue && attribue.carburant) || tarif.carburant)}"></label>
       <label>Kilométrage au départ<input name="kmDepart" type="number" min="0" value="${val(existant && existant.kmDepart, r.kmDepart ?? (attribue && attribue.kmActuel))}" placeholder="à la remise"></label>
-      <label>Prix total TTC (MAD)<input name="prixTotal" type="number" min="0" required value="${val(loc.prixTotal, tarif.prixJour ? tarif.prixJour * jours : "")}"></label>
+      <label>Prix total TTC (MAD)<input name="prixTotal" type="number" min="0" required value="${val(loc.prixTotal, grille.total || "")}"></label>
       <label>Caution (MAD)<input name="caution" type="number" min="0" required value="${val(loc.caution, tarif.caution)}"></label>
       <label>Paiement<select name="paiement">${["Carte bancaire (CMI)", "Virement", "Espèces"].map((p) => `<option${p === paiement ? " selected" : ""}>${p}</option>`).join("")}</select></label>
       <label class="large">Options<input name="options" value="${val(loc.options)}" placeholder="siège bébé, conducteur additionnel…"></label>
       <label class="large">Agent<input name="agent" value="${val(existant && existant.agent)}"></label>
-      <p class="aide large">${tarif.prixJour ? `Prix proposé : ${jours} jour${jours > 1 ? "s" : ""} × ${tarif.prixJour} MAD. Ajustez en cas de remise (tarif dégressif dès 7 jours).` : "Véhicule hors grille : saisissez le prix."}</p>
+      <p class="aide large">${grille.total ? `Prix de la grille : ${nombre(grille.total)} MAD pour ${jours} jour${jours > 1 ? "s" : ""} (${escHTML(detailPrix(grille))}). Ajustez en cas de remise.` : "Véhicule hors grille : saisissez le prix."}</p>
       <button class="action large" type="submit">${existant ? "Mettre à jour le contrat" : "Générer le contrat"}</button>
       <p id="etat-contrat" class="large"></p>
     </form>`;
@@ -728,7 +731,7 @@ async function enregistrerContrat(r, fiche, existant, form) {
     vehicule: { nom: r.vehiculeNom || tarif.nom || "", categorie: tarif.categorie || "", immatriculation: f.immatriculation.value.trim(), carburant: f.carburant.value.trim() },
     location: {
       formule: r.formule || "", depart: r.depart || "", lieuDepart: r.lieuPriseEnCharge || "", retour: r.retour || "", lieuRetour: r.lieuRestitution || "",
-      jours: joursLocation(r), prixJour: tarif.prixJour || "", prixTotal: nombreSaisi(f.prixTotal), caution: nombreSaisi(f.caution),
+      jours: joursLocation(r), prixJour: prixGrille(r).prixJour || "", prixTotal: nombreSaisi(f.prixTotal), caution: nombreSaisi(f.caution),
       paiement: f.paiement.value, options: f.options.value.trim(), kmInclus: FRAIS.kmInclusParJour, kmSup,
     },
     agent: f.agent.value.trim(),

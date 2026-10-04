@@ -3,6 +3,7 @@
 // en PDF. Une facture émise ne se supprime pas : elle s'annule.
 import { creerDocument, corrigerDocument, lireDocument } from "../assets/firestore-rest.js";
 import { SOCIETE, FRAIS } from "../assets/contrat-modele.js";
+import { prixLocation, libelleCoef } from "../assets/tarification.js";
 import {
   etat, jeton, MODELES, cleClient, formateDate, mad, nombre, escHTML, escAttr, champ, valeursFormulaire,
   badge, executer, aujourdhuiISO, enLettres,
@@ -148,8 +149,9 @@ async function annulerFacture(f, etatEl) {
 
 async function propositionDepuisReservation(r) {
   const tarif = MODELES[r.vehicule] || {};
-  const jours = Math.max(1, Math.ceil((new Date(r.retour) - new Date(r.depart)) / 86400000) || 1);
-  let prixTotal = r.prixTotal !== undefined && r.prixTotal !== "" ? Number(r.prixTotal) : tarif.prixJour ? tarif.prixJour * jours : 0;
+  const grille = prixLocation(tarif, r.depart, r.retour);
+  const jours = grille.jours;
+  let prixTotal = r.prixTotal !== undefined && r.prixTotal !== "" ? Number(r.prixTotal) : grille.total;
   let immat = r.immatriculation || "";
   let options = "";
   if (r.contrat) {
@@ -163,8 +165,9 @@ async function propositionDepuisReservation(r) {
     } catch {}
   }
   const libelle = `Location ${r.vehiculeNom || tarif.nom || ""}${immat ? " (" + immat + ")" : ""} du ${formateDate(String(r.depart).slice(0, 10))} au ${formateDate(String(r.retour).slice(0, 10))}${options ? " — " + options : ""}`;
-  const lignes = tarif.prixJour && prixTotal === tarif.prixJour * jours
-    ? [{ designation: libelle, quantite: jours, prixUnitaire: tarif.prixJour }]
+  // prix de la grille : une ligne par prix journalier (ex. jours de décembre à part)
+  const lignes = grille.total && prixTotal === grille.total
+    ? grille.lignes.map((l) => ({ designation: grille.lignes.length > 1 ? `${libelle} — ${l.jours} jour${l.jours > 1 ? "s" : ""}${l.coef !== 1 ? ` (${libelleCoef(l)})` : ""}` : libelle, quantite: l.jours, prixUnitaire: l.prix }))
     : [{ designation: `${libelle} (${jours} jour${jours > 1 ? "s" : ""})`, quantite: 1, prixUnitaire: prixTotal }];
   if (r.supplements) {
     for (const s of r.supplements) {
