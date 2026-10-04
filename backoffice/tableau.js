@@ -8,6 +8,7 @@ import {
   aujourdhuiISO, maintenantISO, decalerJours, peut,
 } from "./commun.js";
 import { ficheClient, nomClient } from "./clients.js";
+import { libelleCreneau, finCreneau } from "../assets/creneaux.js";
 import { solde, etatPaiement, autorisationLivraison, enRetardDePaiement, montantPaye } from "./paiements.js";
 
 const AVANT_LIVRAISON = ["Confirmée", "Payée", "Prête à livrer"];
@@ -22,7 +23,7 @@ export function afficherTableau(el) {
 const lien = (hash, ...parties) => "#" + [hash, ...parties.map(encodeURIComponent)].join("/");
 const client = (r) => { const c = ficheClient(r.telephone); return nomClient(c) || (c && c.entreprise) || r.telephone || "Client"; };
 const jour = (d) => String(d || "").slice(0, 10);
-const heure = (d) => String(d || "").slice(11, 16);
+const heure = (d) => { const c = libelleCreneau(d); return /^\d/.test(c) ? c : c.toLowerCase(); };
 
 function donnees() {
   const { reservations, vehicules } = etat.donnees;
@@ -59,7 +60,7 @@ function rendre() {
   const compte = (s) => d.vehicules.filter((v) => v.statut === s).length;
   const occupation = d.actives.length ? Math.round((compte("En circulation") / d.actives.length) * 100) : 0;
   const resteDu = d.impayes.reduce((s, r) => s + solde(r), 0);
-  const retardsRetour = d.enCours.filter((r) => String(r.retour).slice(0, 16) < d.maintenant).length;
+  const retardsRetour = d.enCours.filter((r) => finCreneau(r.retour) < d.maintenant).length;
   const livraisonsBloquees = d.aLivrer.filter((r) => !autorisationLivraison(r).ok).length;
   const expires = d.conformite.filter((c) => c.expire).length;
   const resa = peut("reservations"), flotte = peut("flotte");
@@ -84,15 +85,15 @@ function rendre() {
         ...d.retours.map((r) => ligneResa(r, `Retour ${heure(r.retour)}`, "")),
       ], "Aucun départ ni retour prévu aujourd'hui.")}
       ${!resa ? "" : carte("Réservations à confirmer", d.aConfirmer.length, lien("reservations", "statut", "À confirmer"),
-        d.aConfirmer.map((r) => ligneResa(r, `${formateDate(r.depart)} → ${formateDate(r.retour)}`, String(r.depart).slice(0, 16) < d.maintenant ? ["Date passée", "alerte"] : "")),
+        d.aConfirmer.map((r) => ligneResa(r, `${formateDate(r.depart)} → ${formateDate(r.retour)}`, finCreneau(r.depart) < d.maintenant ? ["Date passée", "alerte"] : "")),
         "Aucune demande en attente.")}
       ${!resa ? "" : carte("Confirmées, en attente de livraison", d.aLivrer.length, lien("reservations", "statut", "À livrer"),
         d.aLivrer.map((r) => ligneResa(r, `départ ${formateDate(r.depart)}${r.immatriculation ? " · " + r.immatriculation : " · véhicule non attribué"}`,
-          String(r.depart).slice(0, 16) < d.maintenant ? ["Livraison en retard", "alerte"] : !autorisationLivraison(r).ok ? etatPaiement(r) : "", r.statut)),
+          finCreneau(r.depart) < d.maintenant ? ["Livraison en retard", "alerte"] : !autorisationLivraison(r).ok ? etatPaiement(r) : "", r.statut)),
         "Aucune livraison en attente.", "tb-livrer")}
       ${!resa ? "" : carte("Contrats en cours", d.enCours.length, lien("reservations", "statut", "En cours"),
         d.enCours.map((r) => ligneResa(r, `retour ${formateDate(r.retour)}${r.immatriculation ? " · " + r.immatriculation : ""}`,
-          String(r.retour).slice(0, 16) < d.maintenant ? ["Retour en retard", "alerte"] : solde(r) > 0.005 ? [`Reste ${mad(solde(r))}`, "attention"] : "")),
+          finCreneau(r.retour) < d.maintenant ? ["Retour en retard", "alerte"] : solde(r) > 0.005 ? [`Reste ${mad(solde(r))}`, "attention"] : "")),
         "Aucun véhicule chez un client.")}
       ${!peut("paiements") ? "" : carte("Contrats non réglés", d.impayes.length, lien("paiements", "filtre", "dus"),
         d.impayes.map((r) => ligneResa(r, `${r.statut === "En cours" ? "en cours" : "rendu le " + formateDate(jour(r.retourLe || r.retour))} · payé ${mad(montantPaye(r))}`,

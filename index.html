@@ -223,18 +223,30 @@ section[id],header{scroll-margin-top:96px}
           <span style="font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(122, 102, 86);">Prise en charge</span>
           <input name="lieu_prise_en_charge" type="text" placeholder="Aéroport Mohammed V, Casablanca" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26);">
         </label>
-        <label style="background: rgb(242, 234, 220); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;">
+        <div role="group" aria-label="Départ" style="background: rgb(242, 234, 220); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;">
           <span style="font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(122, 102, 86);">Départ</span>
-          <input name="depart" type="datetime-local" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26);">
-        </label>
+          <span style="display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center;">
+            <input name="depart" type="date" aria-label="Date de départ" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26); font-family: inherit;">
+            <select name="depart_creneau" aria-label="Créneau de départ" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26); font-family: inherit; cursor: pointer;">
+              <option value="Matin">Matin</option>
+              <option value="Après-midi">Après-midi</option>
+            </select>
+          </span>
+        </div>
         <label style="background: rgb(242, 234, 220); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;">
           <span style="font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(122, 102, 86);">Restitution</span>
           <input name="lieu_restitution" type="text" placeholder="Même agence" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26);">
         </label>
-        <label style="background: rgb(242, 234, 220); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;">
+        <div role="group" aria-label="Retour" style="background: rgb(242, 234, 220); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;">
           <span style="font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(122, 102, 86);">Retour</span>
-          <input name="retour" type="datetime-local" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26);">
-        </label>
+          <span style="display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center;">
+            <input name="retour" type="date" aria-label="Date de retour" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26); font-family: inherit;">
+            <select name="retour_creneau" aria-label="Créneau de retour" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26); font-family: inherit; cursor: pointer;">
+              <option value="Matin">Matin</option>
+              <option value="Après-midi">Après-midi</option>
+            </select>
+          </span>
+        </div>
         <label style="display: flex; flex-direction: column; gap: 8px; background: rgb(253, 250, 244); padding: 16px 18px;"><span style="font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(166, 147, 129);">Votre téléphone</span><input name="telephone" type="tel" required pattern="(?:\+212|0)[5-7][0-9]{8}" placeholder="06 12 34 56 78" style="border: 0px; outline: 0px; background: transparent; font-size: 14.5px; color: rgb(44, 33, 26); font-family: inherit;"></label><button type="submit" class="scp1" style="background: linear-gradient(135deg, rgb(192, 138, 100) 0%, rgb(138, 82, 54) 100%); color: rgb(255, 249, 241); font-weight: 700; border: 0px; padding: 18px 24px; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; cursor: pointer;">Demander les disponibilités</button>
       </div></form>
       <p style="margin: 16px 0px 0px; font-size: 13px; color: rgb(122, 102, 86);">Annulation sans frais jusqu'à 24 h avant le départ · Caution pré-autorisée, jamais débitée sans dommage constaté.</p>

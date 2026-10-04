@@ -1,6 +1,7 @@
 // Affiche un contrat généré depuis le back-office (collection "contrats").
 // Le lien, envoyé au client par WhatsApp, porte l'identifiant aléatoire du contrat.
 import { lireDocument, estConfigure } from "./firestore-rest.js";
+import { libelleCreneau } from "./creneaux.js";
 
 const jeton = new URLSearchParams(location.search).get("c") || "";
 
@@ -10,7 +11,8 @@ function date(v, avecHeure = true) {
   if (!v) return "";
   const [d, h] = String(v).split("T");
   const [an, mois, jour] = d.split("-");
-  return `${jour}/${mois}/${an}${avecHeure && h ? " à " + h.slice(0, 5) : ""}`;
+  const c = avecHeure && h ? libelleCreneau(v) : "";
+  return `${jour}/${mois}/${an}${c ? (/^\d/.test(c) ? " à " + c : ", " + c.toLowerCase()) : ""}`;
 }
 
 const mad = (n) => (n || n === 0) && n !== "" ? `${Number(n).toLocaleString("fr-FR")} MAD` : "";

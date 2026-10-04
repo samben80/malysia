@@ -1,6 +1,7 @@
 // Outils et données partagés par tous les écrans du back-office.
 import { listerDocuments, corrigerDocument } from "../assets/firestore-rest.js";
 import { TARIFS } from "../assets/contrat-modele.js";
+import { libelleCreneau } from "../assets/creneaux.js";
 
 // Session de l'équipe et données chargées à la connexion (tableaux de documents).
 export const etat = {
@@ -287,7 +288,9 @@ export function formateDate(v) {
   if (!d) return v;
   const [an, mois, jour] = d.split("-");
   if (!jour) return v;
-  return `${jour.slice(0, 2)}/${mois}/${an}${h && /^\d\d:\d\d/.test(h) && v.length <= 16 ? " " + h.slice(0, 5) : ""}`;
+  // créneau (matin / après-midi) d'une réservation, ou heure d'une ancienne réservation
+  const creneau = String(v).length <= 16 ? libelleCreneau(v) : "";
+  return `${jour.slice(0, 2)}/${mois}/${an}${creneau ? " " + (/^\d/.test(creneau) ? creneau : creneau.toLowerCase()) : ""}`;
 }
 
 export const nombre = (n) => Number(n || 0).toLocaleString("fr-FR");

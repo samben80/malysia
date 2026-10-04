@@ -2,6 +2,7 @@
 // Le jeton dans l'URL désigne le dossier ; les données saisies et les photos ne
 // sont lisibles ensuite que par l'équipe connectée (voir les règles dans FIREBASE.md).
 import { creerDocument, lireDocument, corrigerDocument, estConfigure } from "./firestore-rest.js";
+import { libelleCreneau } from "./creneaux.js";
 
 const PIECES = ["permis_recto", "permis_verso", "identite_recto", "identite_verso"];
 // Un document Firestore est limité à 1 Mo : chaque photo est réduite sous ce plafond.
@@ -22,7 +23,8 @@ function formateDate(v) {
   if (!v) return "";
   const [d, h] = String(v).split("T");
   const [an, mois, jour] = d.split("-");
-  return `${jour}/${mois}/${an}${h ? " à " + h : ""}`;
+  const c = h ? libelleCreneau(v) : "";
+  return `${jour}/${mois}/${an}${c ? (/^\d/.test(c) ? " à " + c : ", " + c.toLowerCase()) : ""}`;
 }
 
 async function demarrer() {

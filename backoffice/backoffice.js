@@ -9,6 +9,7 @@ import {
 } from "../assets/firestore-rest.js";
 import { SOCIETE, FRAIS, conditionsGenerales } from "../assets/contrat-modele.js";
 import { prixTranche, coefficient, detailPrix } from "../assets/tarification.js";
+import { finCreneau } from "../assets/creneaux.js";
 import {
   etat, jeton, chargerTout, majDisponibilite, nomModele, MODELES, STATUTS_ACTIFS, chevauche, alertesVehicule,
   cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO, messageErreur,
@@ -513,8 +514,8 @@ function renderRetour(r) {
   const jours = joursLocation(r);
   const tarif = MODELES[r.vehicule] || {};
   const kmSup = tarif.kmSup || 3;
-  // retard au-delà de la tolérance du contrat : chaque jour entamé est dû
-  const retardMs = Date.now() - new Date(r.retour).getTime() - FRAIS.toleranceRetardHeures * 3600000;
+  // retard au-delà de la fin du créneau de retour + tolérance du contrat : chaque jour entamé est dû
+  const retardMs = Date.now() - new Date(finCreneau(r.retour)).getTime() - FRAIS.toleranceRetardHeures * 3600000;
   const joursRetard = Number.isFinite(retardMs) && retardMs > 0 ? Math.ceil(retardMs / 86400000) : 0;
   // jour de retard : prix de la tranche de la location × coefficient du mois en cours
   const prixJour = tarif.prixJour ? Math.round(prixTranche(tarif, jours) * coefficient(tarif, new Date().getMonth()) * 100) / 100 : Math.round((Number(r.prixTotal) || 0) / jours) || 0;

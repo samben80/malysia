@@ -10,6 +10,7 @@ import {
   lireDocument,
   estConfigure,
 } from "./firestore-rest.js";
+import { dateCreneau } from "./creneaux.js";
 
 const formReservation = document.querySelector('form[name="reservation"]');
 const formContact = document.querySelector('form[name="contact"]');
@@ -44,10 +45,16 @@ function optionChoisie() {
   return champVehicule && champVehicule.options ? champVehicule.options[champVehicule.selectedIndex] : null;
 }
 
+// date choisie + créneau (Matin / Après-midi) → "AAAA-MM-JJTHH:MM"
+function dateDuFormulaire(nom) {
+  const f = formReservation.elements;
+  return dateCreneau(f[nom].value, f[nom + "_creneau"] ? f[nom + "_creneau"].value : "");
+}
+
 async function verifierDisponibilite() {
   if (!infoDispo || !champVehicule || !estConfigure()) return;
-  const depart = formReservation.elements["depart"].value;
-  const retour = formReservation.elements["retour"].value;
+  const depart = dateDuFormulaire("depart");
+  const retour = dateDuFormulaire("retour");
   if (!champVehicule.value || !depart || !retour) {
     infoDispo.hidden = true;
     return;
@@ -73,10 +80,16 @@ async function verifierDisponibilite() {
 }
 
 if (formReservation) {
-  ["depart", "retour"].forEach((nom) => {
+  ["depart", "retour", "depart_creneau", "retour_creneau"].forEach((nom) => {
     const el = formReservation.elements[nom];
-    if (el) el.addEventListener("change", verifierDisponibilite);
+    if (el) el.addEventListener("change", () => {
+      formReservation.elements["retour"].setCustomValidity("");
+      verifierDisponibilite();
+    });
   });
+  // pas de date passée dans le calendrier
+  const auj = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  ["depart", "retour"].forEach((nom) => { if (formReservation.elements[nom]) formReservation.elements[nom].min = auj; });
 }
 
 // ---- anti-spam partagé : le champ "societe" doit rester vide (piège à robots)
@@ -102,6 +115,11 @@ if (formReservation) {
     if (!estConfigure() || estSpam(formReservation)) return; // repli : soumission d'origine
     ev.preventDefault();
     const f = formReservation.elements;
+    if (f["depart"].value && f["retour"].value && dateDuFormulaire("retour") <= dateDuFormulaire("depart")) {
+      f["retour"].setCustomValidity("Le retour doit être après le départ.");
+      f["retour"].reportValidity();
+      return;
+    }
     const { id: vehiculeId, nom: vehiculeNom } = vehiculeChoisi();
     const bouton = formReservation.querySelector('button[type="submit"]');
     const libelleInitial = bouton.textContent;
@@ -114,9 +132,9 @@ if (formReservation) {
         // les radios "mode" sont hors du <form> (chips au-dessus de la carte) : lues à part
         formule: document.querySelector('input[name="mode"]:checked').value,
         lieuPriseEnCharge: f["lieu_prise_en_charge"].value,
-        depart: f["depart"].value,
+        depart: dateDuFormulaire("depart"),
         lieuRestitution: f["lieu_restitution"].value,
-        retour: f["retour"].value,
+        retour: dateDuFormulaire("retour"),
         telephone: f["telephone"].value,
         statut: "À confirmer",
         source: "site",
