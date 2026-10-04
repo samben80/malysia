@@ -6,6 +6,7 @@ import { libelleCreneau } from "../assets/creneaux.js";
 // Session de l'équipe et données chargées à la connexion (tableaux de documents).
 export const etat = {
   session: null,
+  formule: "complete", // voir FORMULES
   donnees: { reservations: [], vehicules: [], maintenance: [], clients: [], factures: [], modeles: [] },
 };
 
@@ -39,13 +40,34 @@ export const ACTIONS = [["acces", "Accès"], ["creer", "Créer"], ["modifier", "
 // (la liste d'e-mails donnait alors tous les droits).
 export function peut(module, action = "acces") {
   const p = etat.profil;
-  if (!p) return false;
+  if (!p || !moduleDansFormule(module)) return false;
   if (p.admin || p.ancien) return true;
   const d = p.droits && p.droits[module];
   if (!d || !d.acces) return false;
   return !!d[action];
 }
 export const estAdmin = () => !!(etat.profil && (etat.profil.admin || etat.profil.ancien));
+
+// ---- formule du back-office
+//
+// Deux formules pour deux façons de louer, choisies par l'administrateur
+// (écran Utilisateurs) et enregistrées dans parametres/societe :
+//  - « complete » : tout le back-office (dossier client, contrat, maintenance,
+//    clients en compte, facturation, statistiques) ;
+//  - « vente » : vendre et encaisser, puis suivre la sortie et le retour du
+//    véhicule, sans dossier ni contrat.
+// Un module hors formule est masqué pour tous, administrateurs compris. Les
+// données restent en place : repasser en formule complète les retrouve.
+export const FORMULES = {
+  complete: { nom: "Gestion complète", modules: null },
+  vente: { nom: "Vente en ligne", modules: ["tableau", "reservations", "flotte", "paiements", "facturation"] },
+};
+export const formule = () => (FORMULES[etat.formule] ? etat.formule : "complete");
+export const estFormuleVente = () => formule() === "vente";
+export function moduleDansFormule(module) {
+  const modules = FORMULES[formule()].modules;
+  return !modules || modules.includes(module);
+}
 
 // Droits complets ou vides, pour préremplir une fiche utilisateur.
 export function droitsTous(valeur) {
@@ -124,6 +146,8 @@ export function contientTexte(recherche, ...textes) {
 export const STATUTS_VEHICULE = ["Disponible", "En circulation", "En réparation", "Hors service"];
 // Réservations qui occupent un véhicule sur leurs dates.
 export const STATUTS_ACTIFS = ["Confirmée", "Payée", "Prête à livrer", "En cours"];
+// Niveau de carburant noté à la sortie et au retour du véhicule.
+export const NIVEAUX_CARBURANT = ["Plein", "3/4", "1/2", "1/4", "Réserve"];
 
 // Charge toutes les collections du back-office. Renvoie la liste de celles
 // que les règles de sécurité refusent encore (règles pas encore publiées).

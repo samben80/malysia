@@ -81,6 +81,14 @@ service cloud.firestore {
       allow list, create, update, delete: if admin();
     }
 
+    // Réglages de la société, dont la formule du back-office (« complete »
+    // ou « vente ») : lisibles par tous (le site pourra s'en servir),
+    // modifiables par les administrateurs.
+    match /parametres/{doc} {
+      allow read: if true;
+      allow write: if admin();
+    }
+
     // Demandes du site public : tout le monde peut en créer une. L'équipe
     // les lit ; les faire avancer demande le droit « modifier » (ou de noter
     // un paiement, ou de lier une facture) ; les annuler ou les supprimer
@@ -248,6 +256,16 @@ serveur, donc le forfait payant) :
   clients, factures) restent lisibles par tout compte actif de l'équipe, car le
   tableau de bord et les statistiques les croisent. Les pièces d'identité des
   dossiers ne sont lisibles qu'avec l'accès aux réservations ou aux clients.
+
+### Formule du back-office
+
+Le document `parametres/societe` (champ `formule`) choisit la formule, depuis
+l'écran **Utilisateurs** : `complete` (tout le back-office) ou `vente` (vente
+en ligne : tableau de bord, réservations, flotte, paiements, facturation ;
+sortie et retour du véhicule sans dossier client ni contrat). Sans ce
+document, ou tant que les règles ci-dessus ne sont pas publiées, le
+back-office reste en formule complète. La formule masque des modules à
+l'écran, elle ne change pas les droits vérifiés par les règles.
 
 ## Une fois ces 4 étapes faites
 

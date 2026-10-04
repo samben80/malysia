@@ -13,7 +13,7 @@ import { finCreneau } from "../assets/creneaux.js";
 import {
   etat, jeton, chargerTout, majDisponibilite, nomModele, MODELES, STATUTS_ACTIFS, chevauche, alertesVehicule,
   cleClient, lienWhatsApp, formateDate, nombre, escHTML, escAttr, badge, maintenantISO, messageErreur,
-  estDemandeGroupe, correspondDemande, mad, peut, estAdmin, MODULES, PROPRIETAIRE,
+  estDemandeGroupe, correspondDemande, mad, peut, estAdmin, MODULES, PROPRIETAIRE, estFormuleVente, NIVEAUX_CARBURANT,
 } from "./commun.js";
 import { afficherUtilisateurs } from "./utilisateurs.js";
 import { afficherTableau } from "./tableau.js";
@@ -91,6 +91,17 @@ async function chargerProfil() {
   return true;
 }
 
+// Formule du back-office (parametres/societe). Sans réglage, ou tant que les
+// règles qui ouvrent cette collection ne sont pas publiées : formule complète.
+async function chargerFormule() {
+  try {
+    const p = await lireDocument("parametres", "societe", jeton());
+    etat.formule = (p && p.formule) || "complete";
+  } catch {
+    etat.formule = "complete";
+  }
+}
+
 async function afficherApp() {
   ecranConnexion.style.display = "none";
   app.classList.add("actif");
@@ -102,6 +113,7 @@ async function afficherApp() {
       afficherConnexion("Ce compte n'a pas accès au back-office. Demandez à un administrateur de vous ajouter dans l'écran Utilisateurs.");
       return;
     }
+    await chargerFormule();
     appliquerMenu();
     const refusees = await chargerTout();
     etat.pret = true;
@@ -193,6 +205,8 @@ function router() {
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", router);
+// formule changée depuis l'écran Utilisateurs : menu et écran à jour tout de suite
+window.addEventListener("formule-changee", () => { appliquerMenu(); router(); });
 
 // Boutons et formulaires réservés à un droit : data-droit="flotte:creer"
 // (plusieurs possibilités séparées par |) masque l'élément ;
@@ -346,6 +360,8 @@ function renderFiche() {
   const cle = cleClient(r.telephone);
   const avantRemise = ["Confirmée", "Payée", "Prête à livrer"].includes(r.statut);
   const annulable = ["À confirmer", ...STATUTS_ACTIFS].includes(r.statut) && r.statut !== "En cours";
+  // formule Vente en ligne : ni dossier client ni contrat
+  const avecDossier = !estFormuleVente() && r.statut !== "À confirmer" && r.statut !== "Annulée";
   ficheEl.innerHTML = `
     ${badge(r.statut)}
     ${client && client.listeNoire ? `<p class="alerte">Client en liste noire${client.motifListeNoire ? " : " + escHTML(client.motifListeNoire) : ""}</p>` : ""}
@@ -353,7 +369,7 @@ function renderFiche() {
     <div class="ref">${r.id}</div>
     ${r.vehiculeNomDemande !== undefined && r.vehiculeNomDemande !== r.vehiculeNom ? `<p class="aide">Demande du client : ${escHTML(r.vehiculeNomDemande || "pas de préférence")}</p>` : ""}
     <div class="champs">
-      <div><span>Client</span>${cle ? `<a href="#clients/${escAttr(cle)}">${escHTML(nomClient(client) || "Voir la fiche")}</a>` : "—"}</div>
+      <div><span>Client</span>${cle && peut("clients") ? `<a href="#clients/${escAttr(cle)}">${escHTML(nomClient(client) || "Voir la fiche")}</a>` : escHTML(nomClient(client) || r.nom || "—")}</div>
       <div><span>Téléphone</span><a class="tel" href="tel:${escAttr(r.telephone)}">${escHTML(r.telephone || "—")}</a></div>
       <div><span>Formule</span>${escHTML(r.formule || "—")}</div>
       <div><span>Prise en charge</span>${escHTML(r.lieuPriseEnCharge || "—")}</div>
@@ -361,6 +377,9 @@ function renderFiche() {
       <div><span>Retour</span>${formateDate(r.retour)}</div>
       <div><span>Restitution</span>${escHTML(r.lieuRestitution || "—")}</div>
       ${r.kmDepart !== undefined && r.kmDepart !== "" ? `<div><span>Km départ / retour</span>${nombre(r.kmDepart)}${r.kmRetour !== undefined && r.kmRetour !== "" ? " → " + nombre(r.kmRetour) + ` (${nombre(r.kmRetour - r.kmDepart)} km)` : ""}</div>` : ""}
+      ${r.carburantDepart ? `<div><span>Carburant départ / retour</span>${escHTML(r.carburantDepart)}${r.carburantRetour ? " → " + escHTML(r.carburantRetour) : ""}</div>` : ""}
+      ${r.etatDepart ? `<div><span>État à la sortie</span>${escHTML(r.etatDepart)}</div>` : ""}
+      ${r.etatRetour ? `<div><span>État au retour</span>${escHTML(r.etatRetour)}</div>` : ""}
     </div>
     ${STATUTS_ACTIFS.includes(r.statut) || r.statut === "À confirmer" ? '<div class="bloc" id="bloc-attribution"></div>' : ""}
     ${prochain
@@ -373,10 +392,10 @@ function renderFiche() {
     ${r.statut !== "À confirmer" && r.statut !== "Annulée" && r.telephone
       ? `<a class="whatsapp" target="_blank" rel="noopener" href="${escAttr(lienWhatsApp(r.telephone, messageConfirmation(r)))}">Prévenir le client par WhatsApp</a>`
       : ""}
-    ${r.statut !== "À confirmer" && r.statut !== "Annulée" ? `<div class="bloc"><h3>Facture</h3>${r.facture
+    ${r.statut !== "À confirmer" && r.statut !== "Annulée" && peut("facturation") ? `<div class="bloc"><h3>Facture</h3>${r.facture
       ? `<a class="bouton secondaire bloc" href="#facturation/${escAttr(r.facture)}">Voir la facture ${escHTML(r.facture)}</a>`
       : `<a class="bouton secondaire bloc" href="#facturation/nouvelle/${escAttr(r.id)}" data-droit="facturation:creer">Créer la facture</a>`}</div>` : ""}
-    ${r.statut !== "À confirmer" && r.statut !== "Annulée" ? '<div class="dossier" id="bloc-dossier"></div>' : ""}
+    ${avecDossier ? '<div class="dossier" id="bloc-dossier"></div>' : ""}
     ${annulable ? '<button class="lien-danger" id="annuler-reservation" data-droit="reservations:supprimer">Annuler la réservation</button>' : ""}
   `;
   if (prochain) {
@@ -387,7 +406,7 @@ function renderFiche() {
   if (avantRemise) renderRemise(r);
   if (r.statut === "En cours") renderRetour(r);
   if (annulable) document.getElementById("annuler-reservation").addEventListener("click", () => annuler(r));
-  if (r.statut !== "À confirmer" && r.statut !== "Annulée") renderDossier(r);
+  if (avecDossier) renderDossier(r);
 }
 
 // ---- attribution d'un véhicule précis (immatriculation) à la réservation
@@ -476,25 +495,29 @@ function renderRemise(r) {
     return;
   }
   const autorisation = autorisationLivraison(r);
+  const titre = estFormuleVente() ? "Sortie du véhicule" : "Remise du véhicule";
   if (!autorisation.ok) {
-    bloc.innerHTML = `<h3>Remise du véhicule</h3><p class="alerte" id="blocage-remise">${escHTML(autorisation.motif)}</p>`;
+    bloc.innerHTML = `<h3>${titre}</h3><p class="alerte" id="blocage-remise">${escHTML(autorisation.motif)}</p>`;
     return;
   }
-  bloc.innerHTML = `<h3>Remise du véhicule</h3>
+  bloc.innerHTML = `<h3>${titre}</h3>
     ${autorisation.compte ? `<p class="alerte attention">${escHTML(autorisation.motif)}</p>` : ""}
     <form class="formulaire" id="form-remise" data-droit="reservations:modifier">
       <label>Kilométrage au départ<input name="km" type="number" min="0" required value="${escAttr(r.kmDepart ?? v.kmActuel ?? "")}"></label>
+      <label>Carburant au départ${choixCarburant("carburant", r.carburantDepart)}</label>
+      <label class="large">État du véhicule<input name="etat" value="${escAttr(r.etatDepart || "")}" placeholder="rayures, jantes, propreté… (facultatif)"></label>
       <button class="action" type="submit">Remettre ${escHTML(v.immatriculation)} au client</button>
       <p class="aide large">La location passe « En cours » et le véhicule « En circulation ».</p>
       <p class="etat large" id="etat-remise"></p>
     </form>`;
   document.getElementById("form-remise").addEventListener("submit", async (ev) => {
     ev.preventDefault();
-    const km = Number(ev.target.elements.km.value);
+    const f = ev.target.elements;
+    const km = Number(f.km.value);
     await ecrire("etat-remise", async () => {
       const controle = autorisationLivraison(r); // revérifié au dernier moment
       if (!controle.ok) throw new Error(controle.motif);
-      const maj = { statut: "En cours", kmDepart: km, remiseLe: new Date(), livraisonSansPaiement: !!controle.compte };
+      const maj = { statut: "En cours", kmDepart: km, carburantDepart: f.carburant.value, etatDepart: f.etat.value.trim(), remiseLe: new Date(), livraisonSansPaiement: !!controle.compte };
       await corrigerDocument("reservations", r.id, maj, jeton());
       Object.assign(r, maj, { remiseLe: maj.remiseLe.toISOString() });
       await corrigerDocument("vehicules", v.id, { statut: "En circulation", kmActuel: km, disponibleLe: "" }, jeton());
@@ -506,6 +529,10 @@ function renderRemise(r) {
       }
     });
   });
+}
+
+function choixCarburant(nom, valeur) {
+  return `<select name="${nom}" required><option value="">—</option>${NIVEAUX_CARBURANT.map((n) => `<option${n === valeur ? " selected" : ""}>${n}</option>`).join("")}</select>`;
 }
 
 function renderRetour(r) {
@@ -522,6 +549,8 @@ function renderRetour(r) {
   bloc.innerHTML = `<h3>Retour du véhicule</h3>
     <form class="formulaire" id="form-retour" data-droit="reservations:modifier">
       <label>Kilométrage au retour<input name="km" type="number" min="${escAttr(r.kmDepart || 0)}" required></label>
+      <label>Carburant au retour${choixCarburant("carburant", "")}</label>
+      <label class="large">État du véhicule<input name="etat" placeholder="dommages constatés, propreté… (facultatif)"></label>
       <p class="aide large" id="calcul-km">Inclus : ${nombre(FRAIS.kmInclusParJour * jours)} km (${jours} j × ${FRAIS.kmInclusParJour} km).</p>
       <label>Supplément kilométrique (MAD)<input name="supKm" type="number" min="0" step="0.01" value="0"></label>
       <label>Retard${joursRetard ? ` (${joursRetard} j × ${nombre(prixJour)} MAD)` : ""} (MAD)<input name="supRetard" type="number" min="0" step="0.01" value="${joursRetard * prixJour}"></label>
@@ -550,7 +579,7 @@ function renderRetour(r) {
       Number(f.autresFrais.value) > 0 && { libelle: f.motifFrais.value.trim() || "Frais", montant: Number(f.autresFrais.value), type: "frais" },
     ].filter(Boolean);
     await ecrire("etat-retour", async () => {
-      const maj = { statut: "Terminée", kmRetour: km, retourLe: new Date(), supplements: [...(r.supplements || []), ...supplements] };
+      const maj = { statut: "Terminée", kmRetour: km, carburantRetour: f.carburant.value, etatRetour: f.etat.value.trim(), retourLe: new Date(), supplements: [...(r.supplements || []), ...supplements] };
       await corrigerDocument("reservations", r.id, maj, jeton());
       Object.assign(r, maj, { retourLe: maj.retourLe.toISOString() });
       if (v) {
@@ -832,9 +861,9 @@ function actionPour(r) {
         : { libelle: "", prochain: null, aide: "Encaissez le paiement ci-dessous : la réservation passe « Payée » dès que le montant est réglé." };
     case "Payée":
       return { libelle: "Marquer prête à livrer", prochain: "Prête à livrer",
-        aide: "Le véhicule est préparé. Le contrat se signe à la remise du véhicule." };
+        aide: estFormuleVente() ? "Le véhicule est préparé, prêt pour sa sortie." : "Le véhicule est préparé. Le contrat se signe à la remise du véhicule." };
     case "Prête à livrer":
-      return { libelle: "", prochain: null, aide: "Remettez le véhicule au client ci-dessous le jour du départ." };
+      return { libelle: "", prochain: null, aide: estFormuleVente() ? "Enregistrez la sortie du véhicule ci-dessous le jour du départ." : "Remettez le véhicule au client ci-dessous le jour du départ." };
     case "En cours":
       return { libelle: "", prochain: null, aide: "Le véhicule est chez le client. Enregistrez son retour ci-dessous." };
     case "Terminée":

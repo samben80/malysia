@@ -14,6 +14,7 @@ import {
 } from "../assets/firestore-rest.js";
 import {
   etat, jeton, PROPRIETAIRE, MODULES, ACTIONS, droitsTous, escHTML, escAttr, badge, formateDate, messageErreur,
+  FORMULES, formule, moduleDansFormule,
 } from "./commun.js";
 
 // Comptes qui avaient accès par la liste d'e-mails de l'ancien firestore.rules :
@@ -81,6 +82,7 @@ function rendre() {
   section.innerHTML = `
     <div class="entete"><h1>Utilisateurs</h1><button class="bouton" id="nouvel-utilisateur">+ Nouvel utilisateur</button></div>
     <p class="aide-ecran">Chaque personne de l'équipe a son propre compte. Les droits s'appliquent dès l'enregistrement, module par module.</p>
+    ${blocFormule()}
     <div class="disposition">
       <div class="liste">${liste.map((u) => `
         <div class="ligne${selection === email(u) ? " selectionnee" : ""}" data-email="${escAttr(email(u))}">
@@ -96,7 +98,50 @@ function rendre() {
     message = null;
     rendre();
   }));
+  lierFormule();
   rendreFiche(liste);
+}
+
+// ---- formule du back-office (parametres/societe)
+
+const DESCRIPTION_FORMULE = {
+  complete: "Tout le back-office : dossier client et contrat, maintenance, clients en compte, facturation, statistiques.",
+  vente: "Vendre et encaisser, puis noter la sortie et le retour du véhicule (kilométrage, carburant, état). Sans dossier client ni contrat. Modules : tableau de bord, réservations, flotte, paiements, facturation.",
+};
+let messageFormule = null;
+
+function blocFormule() {
+  const actuelle = formule();
+  return `<form class="panneau" id="form-formule">
+    <h2>Formule du back-office</h2>
+    ${Object.entries(FORMULES).map(([id, f]) => `<label class="choix-formule"><input type="radio" name="formule" value="${id}"${id === actuelle ? " checked" : ""}>
+      <span><b>${escHTML(f.nom)}</b><br><small>${escHTML(DESCRIPTION_FORMULE[id])}</small></span></label>`).join("")}
+    <p class="aide">Les modules hors formule sont masqués pour tout le monde, administrateurs compris. Rien n'est effacé : repasser en gestion complète retrouve toutes les données.</p>
+    <button class="bouton" type="submit" hidden>Enregistrer la formule</button>
+    ${messageFormule ? `<p class="etat ${messageFormule.erreur ? "erreur" : "ok"}">${escHTML(messageFormule.texte)}</p>` : ""}
+  </form>`;
+}
+
+function lierFormule() {
+  const form = section.querySelector("#form-formule");
+  const bouton = form.querySelector("button");
+  form.addEventListener("change", () => { bouton.hidden = form.elements.formule.value === formule(); });
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const choix = form.elements.formule.value;
+    bouton.disabled = true;
+    try {
+      await corrigerDocument("parametres", "societe", { formule: choix, modifieLe: new Date(), modifiePar: etat.session.email }, jeton());
+      etat.formule = choix;
+      messageFormule = { texte: `Formule « ${FORMULES[choix].nom} » enregistrée.` };
+      window.dispatchEvent(new Event("formule-changee"));
+    } catch (e) {
+      messageFormule = { erreur: true, texte: e.status === 403
+        ? "Enregistrement refusé : collez d'abord les nouvelles règles firestore.rules dans la console Firebase (Firestore > Règles), puis réessayez."
+        : messageErreur(e) };
+      rendre();
+    }
+  });
 }
 
 function rendreReglesAPublier() {
@@ -188,7 +233,7 @@ function rendreFiche(liste) {
 function tableDroits(droits, admin) {
   return `<table class="droits">
     <thead><tr><th>Module</th>${ACTIONS.map(([, l]) => `<th>${escHTML(l)}</th>`).join("")}</tr></thead>
-    <tbody>${MODULES.map(([id, nom, actions]) => `<tr><td>${escHTML(nom)}</td>${ACTIONS.map(([a, l]) => actions.includes(a)
+    <tbody>${MODULES.map(([id, nom, actions]) => `<tr><td>${escHTML(nom)}${moduleDansFormule(id) ? "" : ' <small class="aide">(hors formule)</small>'}</td>${ACTIONS.map(([a, l]) => actions.includes(a)
       ? `<td><input type="checkbox" data-module="${id}" data-action="${a}" aria-label="${escAttr(`${nom} : ${l}`)}"${admin || (droits[id] && droits[id][a]) ? " checked" : ""}${admin ? " disabled" : ""}></td>`
       : '<td class="sans">—</td>').join("")}</tr>`).join("")}</tbody>
   </table>`;

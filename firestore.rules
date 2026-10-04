@@ -42,6 +42,14 @@ service cloud.firestore {
       allow list, create, update, delete: if admin();
     }
 
+    // Réglages de la société, dont la formule du back-office (« complete »
+    // ou « vente ») : lisibles par tous (le site pourra s'en servir),
+    // modifiables par les administrateurs.
+    match /parametres/{doc} {
+      allow read: if true;
+      allow write: if admin();
+    }
+
     // Demandes du site public : tout le monde peut en créer une. L'équipe
     // les lit ; les faire avancer demande le droit « modifier » (ou de noter
     // un paiement, ou de lier une facture) ; les annuler ou les supprimer
